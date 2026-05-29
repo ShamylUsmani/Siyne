@@ -8,6 +8,7 @@ import {
   updateDoc, arrayUnion, arrayRemove, addDoc, serverTimestamp,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { updateProfile } from 'firebase/auth';
 import { db, storage } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
@@ -122,13 +123,14 @@ export default function ProfilePage() {
       setProfile(prev => ({ ...prev, photoURL: url }));
       try {
         await setDoc(doc(db, 'users', user.uid), { photoURL: url }, { merge: true });
+        await updateProfile(user, { photoURL: url }).catch(() => {});
       } catch (fsErr) {
         console.error('Firestore save failed:', fsErr);
         setImgError('Photo uploaded but could not be saved. Check Firestore rules.');
       }
     } catch (err) {
       console.error('Avatar upload failed:', err);
-      setImgError('Photo upload failed. Check that Firebase Storage is enabled and rules allow writes.');
+      setImgError('Photo upload failed. Make sure Firebase Storage rules allow writes. In Firebase Console → Storage → Rules, set: allow read, write: if request.auth != null;');
       setProfile(prev => ({ ...prev, photoURL: '' }));
     } finally {
       setUploadingAvatar(false);
