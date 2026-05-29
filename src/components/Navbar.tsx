@@ -15,6 +15,7 @@ import { useAuth } from '@/context/AuthContext';
 interface Notif {
   id:        string;
   type:      string;
+  fromUid:   string;
   fromName:  string;
   text:      string;
   read:      boolean;
@@ -92,7 +93,14 @@ function NotifDropdown({ onClose }: { onClose: () => void }) {
             <span className="text-lg flex-shrink-0 mt-0.5">{typeIcon(n.type)}</span>
             <div className="flex-1 min-w-0">
               <p className="text-sm leading-snug" style={{ color: 'var(--fg2)' }}>
-                <span className="font-semibold" style={{ color: 'var(--fg1)' }}>{n.fromName}</span>{' '}{n.text}
+                {n.fromUid ? (
+                  <Link href={`/profile/${n.fromUid}`} onClick={onClose}
+                    className="font-semibold hover:underline" style={{ color: 'var(--fg1)' }}>
+                    {n.fromName}
+                  </Link>
+                ) : (
+                  <span className="font-semibold" style={{ color: 'var(--fg1)' }}>{n.fromName}</span>
+                )}{' '}{n.text}
               </p>
               {n.createdAt && (
                 <p className="text-xs mt-0.5" style={{ color: 'var(--fg4)' }}>

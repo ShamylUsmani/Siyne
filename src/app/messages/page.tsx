@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  collection, query, where, orderBy, onSnapshot,
+  collection, query, where, onSnapshot,
   getDocs, doc, setDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -65,16 +65,17 @@ export default function MessagesPage() {
 
   useEffect(() => { if (!loading && !user) router.replace('/auth'); }, [user, loading, router]);
 
-  /* load conversation list */
+  /* load conversation list — no orderBy to avoid composite index requirement, sort client-side */
   useEffect(() => {
     if (!user) return;
     const q = query(
       collection(db, 'conversations'),
       where('participants', 'array-contains', user.uid),
-      orderBy('lastAt', 'desc'),
     );
     return onSnapshot(q, snap => {
-      setConvs(snap.docs.map(d => ({ id: d.id, ...d.data() } as Conv)));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Conv));
+      list.sort((a, b) => (b.lastAt?.seconds ?? 0) - (a.lastAt?.seconds ?? 0));
+      setConvs(list);
     });
   }, [user]);
 
