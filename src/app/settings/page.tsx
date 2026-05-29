@@ -33,7 +33,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
     <button
       onClick={() => onChange(!checked)}
       className="relative w-10 h-6 rounded-full transition-colors flex-shrink-0"
-      style={{ background: checked ? '#b80000' : 'var(--fg5)' }}>
+      style={{ background: checked ? '#B01E36' : 'var(--fg5)' }}>
       <div className="absolute top-1 w-4 h-4 rounded-full bg-white transition-transform"
         style={{ left: '4px', transform: checked ? 'translateX(16px)' : 'translateX(0)' }} />
     </button>
@@ -299,7 +299,7 @@ function SettingsContent() {
             <div className="flex items-center gap-4 mb-5">
               <div className="relative">
                 <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center font-bold text-xl"
-                  style={{ background: photoURL ? 'transparent' : 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                  style={{ background: photoURL ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                   {photoURL
                     ? <img src={photoURL} alt="avatar" className="w-full h-full object-cover" />
                     : (user.displayName?.[0]?.toUpperCase() ?? '?')}
@@ -487,7 +487,7 @@ function SettingsContent() {
                 <button key={t} onClick={() => changeTheme(t)}
                   className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all flex flex-col items-center gap-2"
                   style={theme === t
-                    ? { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white', border: '1px solid #b80000' }
+                    ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white', border: '1px solid #B01E36' }
                     : { background: 'var(--sur)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
                   <span className="text-xl">{t === 'dark' ? '🌙' : '☀️'}</span>
                   <span className="capitalize">{t} mode</span>

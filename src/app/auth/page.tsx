@@ -21,8 +21,15 @@ function AuthForm() {
     searchParams.get('tab') === 'signup' ? 'signup' : 'login'
   );
   const [name, setName]   = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPass] = useState('');
+  const [email, setEmail] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('siyne-saved-email') ?? '';
+    return '';
+  });
+  const [password, setPass]     = useState('');
+  const [rememberEmail, setRememberEmail] = useState(() => {
+    if (typeof window !== 'undefined') return !!localStorage.getItem('siyne-saved-email');
+    return false;
+  });
   const [error, setError]   = useState('');
   const [busy, setBusy]     = useState(false);
 
@@ -43,6 +50,11 @@ function AuthForm() {
         });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
+      }
+      if (rememberEmail) {
+        localStorage.setItem('siyne-saved-email', email);
+      } else {
+        localStorage.removeItem('siyne-saved-email');
       }
       router.push('/feed');
     } catch (err: unknown) {
@@ -101,6 +113,19 @@ function AuthForm() {
                 required minLength={6} className="input-field" />
             </div>
 
+            {tab === 'login' && (
+              <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none"
+                style={{ color: 'var(--fg3)' }}>
+                <input
+                  type="checkbox"
+                  checked={rememberEmail}
+                  onChange={e => setRememberEmail(e.target.checked)}
+                  className="w-4 h-4 rounded cursor-pointer accent-[#B01E36]"
+                />
+                Remember my email
+              </label>
+            )}
+
             {error && (
               <p className="text-sm rounded-lg px-4 py-2.5"
                 style={{ background: 'rgba(220,38,38,0.18)', border: '1px solid rgba(220,38,38,0.30)', color: '#fca5a5' }}>
@@ -117,12 +142,12 @@ function AuthForm() {
             {tab === 'login' ? (
               <>Don&apos;t have an account?{' '}
                 <button onClick={() => setTab('signup')}
-                  className="font-medium hover:underline" style={{ color: '#ff4545' }}>Sign up</button>
+                  className="font-medium hover:underline" style={{ color: '#D63A52' }}>Sign up</button>
               </>
             ) : (
               <>Already have an account?{' '}
                 <button onClick={() => setTab('login')}
-                  className="font-medium hover:underline" style={{ color: '#ff4545' }}>Log in</button>
+                  className="font-medium hover:underline" style={{ color: '#D63A52' }}>Log in</button>
               </>
             )}
           </p>

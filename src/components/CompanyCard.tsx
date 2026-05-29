@@ -25,7 +25,7 @@ export default function CompanyCard({
     <div className={`card flex items-center gap-4 ${compact ? 'p-3' : ''}`}>
       <Link href={`/companies/${company.id}`} className="flex-shrink-0">
         <div className={`rounded-xl flex items-center justify-center font-bold overflow-hidden ${compact ? 'w-10 h-10 text-base' : 'w-12 h-12 text-lg'}`}
-          style={{ background: company.logoUrl ? 'transparent' : 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+          style={{ background: company.logoUrl ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
           {company.logoUrl
             ? <img src={company.logoUrl} alt={company.name} className="w-full h-full object-cover" />
             : company.name[0]?.toUpperCase() ?? '?'}
@@ -54,7 +54,7 @@ export default function CompanyCard({
           className={`font-semibold rounded-lg transition-all flex-shrink-0 ${compact ? 'text-xs px-3 py-1' : 'text-xs px-3 py-1.5'}`}
           style={followed
             ? { background: 'var(--fg5)', color: 'var(--fg2)', border: '1px solid var(--fg5)' }
-            : { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+            : { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
           {busy ? '…' : followed ? 'Following' : 'Follow'}
         </button>
       )}

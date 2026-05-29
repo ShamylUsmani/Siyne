@@ -389,7 +389,7 @@ export default function CompanyPage() {
     <div className="min-h-screen"><Navbar />
       <div className="text-center py-24" style={{color:'var(--fg4)'}}>
         <p className="text-xl font-bold mb-2">Company not found</p>
-        <Link href="/search" style={{color:'#ff4545'}} className="text-sm hover:underline">Browse companies</Link>
+        <Link href="/search" style={{color:'#D63A52'}} className="text-sm hover:underline">Browse companies</Link>
       </div>
     </div>
   );
@@ -404,12 +404,12 @@ export default function CompanyPage() {
         <div className="card mb-6">
           {/* cover strip */}
           <div className="rounded-t-xl -mx-6 -mt-6 mb-5 h-28 overflow-hidden"
-            style={{ background: 'linear-gradient(135deg,#5c0000 0%,#950000 60%,#b80000 100%)' }} />
+            style={{ background: 'linear-gradient(135deg,#4A0818 0%,#8A1228 60%,#B01E36 100%)' }} />
 
           <div className="flex items-start gap-4 -mt-14 mb-4 relative">
             {/* logo */}
             <div className="w-20 h-20 rounded-xl border-4 flex-shrink-0 flex items-center justify-center font-bold text-2xl overflow-hidden"
-              style={{ borderColor: 'rgba(8,4,4,0.80)', background: company.logoUrl ? 'transparent' : 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+              style={{ borderColor: 'rgba(8,4,4,0.80)', background: company.logoUrl ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
               {company.logoUrl ? <img src={company.logoUrl} alt={company.name} className="w-full h-full object-cover" /> : company.name[0]?.toUpperCase() ?? '?'}
             </div>
             <div className="flex-1 pt-10">
@@ -434,7 +434,7 @@ export default function CompanyPage() {
                 className="text-sm font-semibold px-5 py-1.5 rounded-lg transition-all"
                 style={isFollowing
                   ? { background: 'var(--fg5)', color: 'var(--fg2)', border: '1px solid var(--fg5)' }
-                  : { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                  : { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                 {followBusy ? '…' : isFollowing ? 'Following' : 'Follow'}
               </button>
             </div>
@@ -475,7 +475,7 @@ export default function CompanyPage() {
             <button key={t} onClick={() => setTab(t)}
               className="flex-1 py-2 text-sm font-semibold rounded-lg capitalize transition-all"
               style={tab === t
-                ? { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }
+                ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
                 : { color: 'var(--fg3)' }}>
               {t}
             </button>
@@ -566,7 +566,7 @@ export default function CompanyPage() {
               <div className="card">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center font-bold text-sm overflow-hidden"
-                    style={{ background: company.logoUrl ? 'transparent' : 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                    style={{ background: company.logoUrl ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                     {company.logoUrl ? <img src={company.logoUrl} className="w-full h-full object-cover" alt="" /> : company.name[0]?.toUpperCase()}
                   </div>
                   <span className="text-sm font-semibold" style={{ color: 'var(--fg2)' }}>Post as {company.name}</span>
@@ -592,7 +592,7 @@ export default function CompanyPage() {
                 <div key={post.id} className="card">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center font-bold text-sm overflow-hidden"
-                      style={{ background: company.logoUrl ? 'transparent' : 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                      style={{ background: company.logoUrl ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                       {company.logoUrl ? <img src={company.logoUrl} className="w-full h-full object-cover" alt="" /> : company.name[0]?.toUpperCase()}
                     </div>
                     <div className="flex-1">
@@ -617,7 +617,7 @@ export default function CompanyPage() {
                     <button onClick={() => likePost(post)} disabled={!user}
                       className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-all"
                       style={{
-                        color: liked ? '#ff4545' : 'var(--fg4)',
+                        color: liked ? '#D63A52' : 'var(--fg4)',
                         background: liked ? 'rgba(224,0,0,0.12)' : 'transparent',
                         border: liked ? '1px solid rgba(224,0,0,0.20)' : '1px solid transparent',
                       }}>

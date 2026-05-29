@@ -89,8 +89,12 @@ export default function NewCompanyPage() {
       });
 
       router.push(`/companies/${companyRef.id}`);
-    } catch {
-      setError('Something went wrong. Please try again.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong.';
+      console.error('Create company failed:', err);
+      setError(msg.includes('permission') || msg.includes('PERMISSION')
+        ? 'Permission denied. Make sure Firestore rules allow authenticated users to create company pages.'
+        : `Failed to create page: ${msg}`);
       setSaving(false);
     }
   }
@@ -153,7 +157,7 @@ export default function NewCompanyPage() {
               {duplicate && (
                 <p className="text-xs mt-1.5" style={{ color: '#fca5a5' }}>
                   A page for this company already exists.{' '}
-                  <Link href={`/companies/${duplicate.id}`} className="underline" style={{ color: '#ff4545' }}>
+                  <Link href={`/companies/${duplicate.id}`} className="underline" style={{ color: '#D63A52' }}>
                     View {duplicate.name}
                   </Link>
                 </p>

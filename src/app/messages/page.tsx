@@ -66,7 +66,7 @@ export default function MessagesPage() {
             </svg>
             <p className="text-sm">No messages yet.</p>
             <p className="text-xs mt-1">
-              <Link href="/connect" className="hover:underline" style={{ color: '#ff4545' }}>Follow people</Link> to start a conversation.
+              <Link href="/connect" className="hover:underline" style={{ color: '#D63A52' }}>Follow people</Link> to start a conversation.
             </p>
           </div>
         ) : (
@@ -79,7 +79,7 @@ export default function MessagesPage() {
                 <Link key={c.id} href={`/messages/${c.id}`}
                   className="card flex items-center gap-4 hover:border-white/20 transition-colors block">
                   <div className="w-11 h-11 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-sm"
-                    style={{ background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                    style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                     {otherName[0]?.toUpperCase() ?? '?'}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -97,7 +97,7 @@ export default function MessagesPage() {
                   </div>
                   {unread > 0 && (
                     <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                      style={{ background: '#e00000' }}>
+                      style={{ background: '#B01E36' }}>
                       {unread > 9 ? '9+' : unread}
                     </div>
                   )}

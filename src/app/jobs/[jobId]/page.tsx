@@ -102,7 +102,7 @@ export default function JobDetailPage() {
         ) : !job ? (
           <div className="text-center py-20" style={{ color: 'var(--fg4)' }}>
             <p className="text-lg font-medium">Job not found.</p>
-            <Link href="/jobs" className="text-sm mt-2 block hover:underline" style={{ color: '#ff4545' }}>
+            <Link href="/jobs" className="text-sm mt-2 block hover:underline" style={{ color: '#D63A52' }}>
               Browse all jobs
             </Link>
           </div>
@@ -190,7 +190,7 @@ export default function JobDetailPage() {
                 <Link href={`/profile/${poster.uid}`}
                   className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                   <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-sm overflow-hidden"
-                    style={{ background: poster.photoURL ? 'transparent' : 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                    style={{ background: poster.photoURL ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                     {poster.photoURL
                       ? <img src={poster.photoURL} alt={poster.name} className="w-full h-full object-cover" />
                       : poster.name[0]?.toUpperCase() ?? '?'}

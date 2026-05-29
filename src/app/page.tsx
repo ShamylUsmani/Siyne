@@ -125,7 +125,7 @@ function RulesCarousel() {
             <div
               className="text-7xl sm:text-8xl font-black leading-none mb-6 select-none"
               style={{
-                background: 'linear-gradient(135deg, #ff4545, #950000)',
+                background: 'linear-gradient(135deg, #D63A52, #6E0D20)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
@@ -269,7 +269,7 @@ export default function LandingPage() {
 
       {/* cursor glow */}
       <div className="pointer-events-none fixed inset-0 z-[9]" style={{
-        background: `radial-gradient(380px circle at ${mouse.x}px ${mouse.y}px, rgba(149,0,0,0.08), transparent 80%)`,
+        background: `radial-gradient(380px circle at ${mouse.x}px ${mouse.y}px, rgba(176,30,54,0.08), transparent 80%)`,
       }} />
 
       {/* ─── FIXED NAV ─────────────────────────────── */}
@@ -294,16 +294,16 @@ export default function LandingPage() {
           background: 'linear-gradient(to bottom, rgba(8,8,8,0.55) 0%, transparent 18%, transparent 75%, rgba(8,8,8,0.7) 100%)',
         }} />
 
-        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen text-center px-6">
-          <h1 className="text-[clamp(2.8rem,7vw,5.5rem)] font-bold text-white leading-[1.08] tracking-tight mb-5">
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen text-center px-4 sm:px-6">
+          <h1 className="text-[clamp(1.75rem,7vw,5.5rem)] font-bold text-white leading-[1.1] tracking-tight mb-4 sm:mb-5">
             Professional networking
           </h1>
 
-          <div className="h-[clamp(3.2rem,8vw,6rem)] flex items-center justify-center mb-8 overflow-hidden">
+          <div className="min-h-[2.2rem] sm:min-h-[clamp(3.2rem,8vw,6rem)] flex items-center justify-center mb-6 sm:mb-8">
             <span
-              className="text-[clamp(2.5rem,6.5vw,5rem)] font-bold block"
+              className="text-[clamp(1.25rem,6.5vw,5rem)] font-bold block text-center leading-tight"
               style={{
-                background: 'linear-gradient(135deg, #ff4545 0%, #b80000 100%)',
+                background: 'linear-gradient(135deg, #D63A52 0%, #B01E36 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
@@ -316,12 +316,12 @@ export default function LandingPage() {
             </span>
           </div>
 
-          <p className="text-lg sm:text-xl text-white/50 max-w-2xl mx-auto mb-12 leading-relaxed">
+          <p className="text-base sm:text-xl text-white/50 max-w-2xl mx-auto mb-10 sm:mb-12 leading-relaxed px-2">
             Siyne is the only professional network where every identity is verified,
             every job includes a salary, and toxic content simply cannot exist.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full px-2">
             <Link href="/auth?tab=signup" className="btn-primary px-10 py-4 text-base font-semibold">
               Join Siyne. It&apos;s free.
             </Link>
@@ -479,7 +479,7 @@ export default function LandingPage() {
               {(['pro', 'company'] as const).map(t => (
                 <button key={t} onClick={() => setActiveTab(t)}
                   className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${activeTab === t ? 'text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                  style={activeTab === t ? { background: 'linear-gradient(135deg, #b80000 0%, #5c0000 100%)' } : {}}>
+                  style={activeTab === t ? { background: 'linear-gradient(135deg, #B01E36 0%, #4A0818 100%)' } : {}}>
                   {t === 'pro' ? 'Professionals' : 'Companies'}
                 </button>
               ))}
@@ -491,7 +491,7 @@ export default function LandingPage() {
                 <div key={title} className="flex gap-4 group">
                   {/* red vertical accent */}
                   <div className="flex-shrink-0 w-[3px] rounded-full self-stretch"
-                    style={{ background: 'linear-gradient(to bottom, #b80000, #5c0000)', minHeight: '100%' }} />
+                    style={{ background: 'linear-gradient(to bottom, #B01E36, #4A0818)', minHeight: '100%' }} />
                   <div>
                     <h3 className="font-bold text-slate-900 mb-1.5 group-hover:text-navy-800 transition-colors">{title}</h3>
                     <p className="text-sm text-slate-500 leading-relaxed">{desc}</p>
@@ -504,7 +504,7 @@ export default function LandingPage() {
       </section>
 
       {/* ─── CTA ────────────────────────────────────── */}
-      <section className="py-24 text-center" style={{ background: 'linear-gradient(135deg, #5c0000 0%, #950000 50%, #b80000 100%)' }}>
+      <section className="py-24 text-center" style={{ background: 'linear-gradient(135deg, #4A0818 0%, #8A1228 50%, #B01E36 100%)' }}>
         <Reveal className="max-w-xl mx-auto px-6">
           <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4 leading-tight">Ready to do this properly?</h2>
           <p className="text-white/60 mb-10 text-lg">Join a network where your career is taken seriously.</p>

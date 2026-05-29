@@ -168,7 +168,7 @@ export default function ManagePage() {
             {admins.map(a => (
               <div key={a.userId} className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                  style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                   {a.name[0]?.toUpperCase() ?? '?'}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -229,7 +229,7 @@ export default function ManagePage() {
                     </div>
                     <button onClick={() => addAdmin(r.uid)} disabled={addBusy === r.uid}
                       className="text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0"
-                      style={{ background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                      style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                       {addBusy === r.uid ? '…' : 'Add as admin'}
                     </button>
                   </div>

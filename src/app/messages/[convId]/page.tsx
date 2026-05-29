@@ -35,6 +35,8 @@ export default function ConvPage() {
   const [text, setText]         = useState('');
   const [sending, setSending]   = useState(false);
   const [other, setOther]       = useState<OtherUser | null>(null);
+  const [msgsLoading, setMsgsLoading] = useState(true);
+  const [msgsError, setMsgsError]     = useState('');
   const bottomRef               = useRef<HTMLDivElement>(null);
   const inputRef                = useRef<HTMLInputElement>(null);
 
@@ -55,10 +57,21 @@ export default function ConvPage() {
   /* real-time messages */
   useEffect(() => {
     if (!convId) return;
+    setMsgsLoading(true);
+    setMsgsError('');
     const q = query(collection(db, 'conversations', convId, 'messages'), orderBy('at', 'asc'), limit(100));
-    return onSnapshot(q, snap => {
-      setMsgs(snap.docs.map(d => ({ id: d.id, ...d.data() } as Msg)));
-    });
+    return onSnapshot(
+      q,
+      snap => {
+        setMsgs(snap.docs.map(d => ({ id: d.id, ...d.data() } as Msg)));
+        setMsgsLoading(false);
+      },
+      err => {
+        console.error('Messages failed to load:', err);
+        setMsgsError('Messages could not load. Check your connection or Firestore rules.');
+        setMsgsLoading(false);
+      }
+    );
   }, [convId]);
 
   /* mark unread = 0 when viewing */
@@ -117,7 +130,7 @@ export default function ConvPage() {
         {other ? (
           <Link href={`/profile/${other.uid}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
-              style={{ background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+              style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
               {other.name[0]?.toUpperCase() ?? '?'}
             </div>
             <div>
@@ -132,7 +145,17 @@ export default function ConvPage() {
 
       {/* messages */}
       <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-6 space-y-3">
-        {msgs.length === 0 && (
+        {msgsLoading && (
+          <div className="flex items-center justify-center py-16">
+            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#B01E36', borderTopColor: 'transparent' }} />
+          </div>
+        )}
+        {msgsError && (
+          <p className="text-center py-8 text-sm px-4 rounded-lg" style={{ color: '#fca5a5', background: 'rgba(220,38,38,0.12)' }}>
+            {msgsError}
+          </p>
+        )}
+        {!msgsLoading && !msgsError && msgs.length === 0 && (
           <p className="text-center py-12 text-sm" style={{ color: 'var(--fg4)' }}>
             No messages yet. Say hello.
           </p>
@@ -143,7 +166,7 @@ export default function ConvPage() {
             <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
               <div className="max-w-[72%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed"
                 style={mine
-                  ? { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white', borderBottomRightRadius: '4px' }
+                  ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white', borderBottomRightRadius: '4px' }
                   : { background: 'var(--fg5)', color: 'var(--fg1)', border: '1px solid var(--fg5)', borderBottomLeftRadius: '4px' }}>
                 {m.text}
               </div>
@@ -162,7 +185,7 @@ export default function ConvPage() {
             placeholder="Write a message…" className="input-field text-sm flex-1" />
           <button onClick={send} disabled={sending || !text.trim()}
             className="w-10 h-10 flex items-center justify-center rounded-xl transition-all disabled:opacity-40 flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+            style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
             </svg>

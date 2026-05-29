@@ -100,7 +100,7 @@ function NotifDropdown({ onClose }: { onClose: () => void }) {
                 </p>
               )}
             </div>
-            {!n.read && <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ background: '#e00000' }} />}
+            {!n.read && <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ background: '#B01E36' }} />}
           </div>
         ))}
       </div>
@@ -133,7 +133,7 @@ export default function Navbar() {
 
   async function handleSignOut() {
     await signOut(auth);
-    router.push('/');
+    window.location.href = '/';
   }
 
   /* live photo from Firestore — updates immediately when user uploads new pic */
@@ -227,7 +227,7 @@ export default function Navbar() {
         {children}
         {!!badge && (
           <div className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-            style={{ background: '#e00000' }}>
+            style={{ background: '#B01E36' }}>
             {badge > 9 ? '9+' : badge}
           </div>
         )}
@@ -275,7 +275,7 @@ export default function Navbar() {
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--sur)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
-                      style={{ background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                      style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                       {u.name[0]?.toUpperCase() ?? '?'}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -296,7 +296,7 @@ export default function Navbar() {
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--sur)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold overflow-hidden"
-                      style={{ background: c.logoUrl ? 'transparent' : 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                      style={{ background: c.logoUrl ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                       {c.logoUrl
                         ? <img src={c.logoUrl} alt={c.name} className="w-full h-full object-cover" />
                         : c.name[0]?.toUpperCase() ?? '?'}
@@ -345,7 +345,7 @@ export default function Navbar() {
                   </Link>
                   {active && (
                     <div className="absolute left-1/2 -translate-x-1/2 h-[3px] w-6 rounded-full"
-                      style={{ background: '#e00000', bottom: '-10px' }} />
+                      style={{ background: '#B01E36', bottom: '-10px' }} />
                   )}
                 </div>
               );
@@ -380,7 +380,7 @@ export default function Navbar() {
               <div className="relative ml-1" ref={profileRef}>
                 <button onClick={() => setShowProfile(v => !v)} title="Account"
                   className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-opacity overflow-hidden"
-                  style={{ background: myPhotoURL ? 'transparent' : 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}
+                  style={{ background: myPhotoURL ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}
                   onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
                   onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                   {myPhotoURL
@@ -493,7 +493,7 @@ export default function Navbar() {
               <Link key={href} href={href} onClick={() => setMenuOpen(false)}
                 className="flex items-center gap-2 py-2 text-sm transition-colors"
                 style={{ color: active ? 'var(--fg1)' : 'var(--fg2)' }}>
-                {active && <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#e00000' }} />}
+                {active && <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#B01E36' }} />}
                 {label}
               </Link>
             );

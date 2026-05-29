@@ -115,7 +115,7 @@ function Spinner() {
   return (
     <div className="p-8 text-center">
       <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin mx-auto"
-        style={{ borderColor: 'var(--fg5)', borderTopColor: '#e00000' }} />
+        style={{ borderColor: 'var(--fg5)', borderTopColor: '#B01E36' }} />
     </div>
   );
 }
@@ -493,12 +493,12 @@ export default function AdminPage() {
             <button key={t.key} onClick={() => setTab(t.key)}
               className="flex-shrink-0 text-sm font-semibold px-4 py-2 rounded-lg transition-all whitespace-nowrap"
               style={tab === t.key
-                ? { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }
+                ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
                 : { background: 'var(--sur)', color: 'var(--fg3)' }}>
               {t.label}
               {!!t.badge && (
                 <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ background: '#e00000', color: 'white' }}>
+                  style={{ background: '#B01E36', color: 'white' }}>
                   {t.badge}
                 </span>
               )}
@@ -637,7 +637,7 @@ export default function AdminPage() {
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
-                                  style={{ background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                                  style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                                   {u.name[0]?.toUpperCase() ?? '?'}
                                 </div>
                                 <p className="text-sm font-medium flex items-center gap-1" style={{ color: 'var(--fg1)' }}>
@@ -707,7 +707,7 @@ export default function AdminPage() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center font-bold text-sm overflow-hidden"
-                              style={{ background: c.logoUrl ? 'transparent' : 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                              style={{ background: c.logoUrl ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                               {c.logoUrl ? <img src={c.logoUrl} alt={c.name} className="w-full h-full object-cover" /> : c.name[0]?.toUpperCase() ?? '?'}
                             </div>
                             <p className="text-sm font-medium" style={{ color: 'var(--fg1)' }}>
@@ -793,7 +793,7 @@ export default function AdminPage() {
                   <div className="px-5 py-5" style={{ borderBottom: '1px solid var(--fg5)' }}>
                     <div className="flex items-center gap-2 mb-3">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                        style={{ background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                        style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                         {postDetail.authorName[0]?.toUpperCase() ?? '?'}
                       </div>
                       <div>

@@ -115,14 +115,17 @@ export default function ProfilePage() {
     if (!file || !user) return;
     setImgError('');
     setUploadingAvatar(true);
-    // Preview immediately from the local file while uploading
     const localPreview = URL.createObjectURL(file);
     setProfile(prev => ({ ...prev, photoURL: localPreview }));
     try {
       const url = await uploadImage(file, `users/${user.uid}/avatar`);
-      // Replace preview with the real Storage URL
       setProfile(prev => ({ ...prev, photoURL: url }));
-      await setDoc(doc(db, 'users', user.uid), { photoURL: url }, { merge: true });
+      try {
+        await setDoc(doc(db, 'users', user.uid), { photoURL: url }, { merge: true });
+      } catch (fsErr) {
+        console.error('Firestore save failed:', fsErr);
+        setImgError('Photo uploaded but could not be saved. Check Firestore rules.');
+      }
     } catch (err) {
       console.error('Avatar upload failed:', err);
       setImgError('Photo upload failed. Check that Firebase Storage is enabled and rules allow writes.');
@@ -138,13 +141,17 @@ export default function ProfilePage() {
     if (!file || !user) return;
     setImgError('');
     setUploadingCover(true);
-    // Preview immediately from the local file while uploading
     const localPreview = URL.createObjectURL(file);
     setProfile(prev => ({ ...prev, coverURL: localPreview }));
     try {
       const url = await uploadImage(file, `users/${user.uid}/cover`);
       setProfile(prev => ({ ...prev, coverURL: url }));
-      await setDoc(doc(db, 'users', user.uid), { coverURL: url }, { merge: true });
+      try {
+        await setDoc(doc(db, 'users', user.uid), { coverURL: url }, { merge: true });
+      } catch (fsErr) {
+        console.error('Firestore save failed:', fsErr);
+        setImgError('Cover uploaded but could not be saved. Check Firestore rules.');
+      }
     } catch (err) {
       console.error('Cover upload failed:', err);
       setImgError('Cover upload failed. Check that Firebase Storage is enabled and rules allow writes.');
@@ -246,10 +253,10 @@ export default function ProfilePage() {
               <div className="relative h-44 overflow-hidden"
                 style={profile.coverURL
                   ? { backgroundImage: `url(${profile.coverURL})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-                  : { background: 'linear-gradient(135deg, #950000 0%, #5c0000 60%, #2d0000 100%)' }}>
+                  : { background: 'linear-gradient(135deg, #8A1228 0%, #4A0818 60%, #2A0510 100%)' }}>
                 {isOwn && (
                   <button onClick={() => coverInputRef.current?.click()} disabled={uploadingCover}
-                    className="absolute inset-0 w-full h-full flex items-center justify-center opacity-0 hover:opacity-100 bg-black/30 transition-opacity cursor-pointer">
+                    className="upload-hover absolute inset-0 w-full h-full flex items-center justify-center opacity-0 hover:opacity-100 bg-black/30 transition-opacity cursor-pointer">
                     <span className="text-white text-sm font-medium bg-black/50 px-4 py-2 rounded-lg backdrop-blur-sm flex items-center gap-2">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -263,7 +270,7 @@ export default function ProfilePage() {
               </div>
 
               {/* Avatar + info */}
-              <div className="px-6 pb-6">
+              <div className="px-4 sm:px-6 pb-6 relative z-10">
                 <div className="flex items-end justify-between -mt-10 mb-4">
                   <div className="relative w-20 h-20 flex-shrink-0">
                     <div className="w-20 h-20 rounded-full border-[3px] flex items-center justify-center font-bold text-2xl overflow-hidden shadow-md"
@@ -274,7 +281,7 @@ export default function ProfilePage() {
                     </div>
                     {isOwn && (
                       <button onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar}
-                        className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 hover:opacity-100 bg-black/40 transition-opacity cursor-pointer">
+                        className="upload-hover absolute inset-0 rounded-full flex items-center justify-center opacity-0 hover:opacity-100 bg-black/40 transition-opacity cursor-pointer">
                         {uploadingAvatar
                           ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                           : <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -302,7 +309,7 @@ export default function ProfilePage() {
                           className="text-xs font-semibold px-4 py-1.5 rounded-lg transition-all"
                           style={isFollowing
                             ? { background: 'var(--fg5)', color: 'var(--fg2)', border: '1px solid var(--fg5)' }
-                            : { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                            : { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                           {followBusy ? '…' : isFollowing ? 'Following' : 'Follow'}
                         </button>
                         <Link href={`/messages/${[user.uid, profileUid].sort().join('_')}`}

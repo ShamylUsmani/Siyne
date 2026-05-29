@@ -222,7 +222,7 @@ export default function FeedPage() {
                 <button key={t} onClick={() => setTab(t)}
                   className="flex-1 py-2 text-sm font-semibold rounded-lg transition-all"
                   style={tab === t
-                    ? { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }
+                    ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
                     : { color: 'var(--fg3)' }}>
                   {t === 'all' ? 'For You' : 'Following'}
                 </button>
@@ -250,7 +250,7 @@ export default function FeedPage() {
                       <button
                         onClick={() => setPostMedia('')}
                         className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
-                        style={{ background: '#e00000', color: 'white' }}>
+                        style={{ background: '#B01E36', color: 'white' }}>
                         ×
                       </button>
                     </div>
@@ -332,9 +332,9 @@ export default function FeedPage() {
                   <p className="text-lg font-medium mb-1">Nothing here yet.</p>
                   <p className="text-sm">
                     Follow people on the{' '}
-                    <Link href="/connect" className="hover:underline" style={{ color: '#ff4545' }}>Connect</Link>
+                    <Link href="/connect" className="hover:underline" style={{ color: '#D63A52' }}>Connect</Link>
                     {' '}page or{' '}
-                    <Link href="/search" className="hover:underline" style={{ color: '#ff4545' }}>companies</Link>
+                    <Link href="/search" className="hover:underline" style={{ color: '#D63A52' }}>companies</Link>
                     {' '}to see their posts here.
                   </p>
                 </div>
@@ -352,7 +352,7 @@ export default function FeedPage() {
                         <div className="flex items-center gap-3 mb-3">
                           <Link href={`/companies/${cp.companyId}`} className="flex-shrink-0">
                             <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm overflow-hidden"
-                              style={{ background: comp.logoUrl ? 'transparent' : 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                              style={{ background: comp.logoUrl ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                               {comp.logoUrl
                                 ? <img src={comp.logoUrl} className="w-full h-full object-cover" alt="" />
                                 : comp.name[0]?.toUpperCase()}
@@ -397,7 +397,7 @@ export default function FeedPage() {
                   </h3>
                   <Link href="/search" className="text-xs transition-colors"
                     style={{ color: 'var(--fg4)' }}
-                    onMouseEnter={e => (e.currentTarget.style.color = '#ff4545')}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#D63A52')}
                     onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg4)')}>
                     See all
                   </Link>
@@ -408,7 +408,7 @@ export default function FeedPage() {
                     <div key={c.id} className="flex items-center gap-3">
                       <Link href={`/companies/${c.id}`} className="flex-shrink-0">
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm overflow-hidden"
-                          style={{ background: c.logoUrl ? 'transparent' : 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                          style={{ background: c.logoUrl ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                           {c.logoUrl
                             ? <img src={c.logoUrl} alt={c.name} className="w-full h-full object-cover" />
                             : c.name[0]?.toUpperCase() ?? '?'}
@@ -434,7 +434,7 @@ export default function FeedPage() {
                         className="text-xs font-semibold px-3 py-1 rounded-lg flex-shrink-0 transition-all"
                         style={sideFollowed.has(c.id)
                           ? { background: 'var(--fg5)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }
-                          : { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                          : { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                         {followBusy === c.id ? '…' : sideFollowed.has(c.id) ? 'Following' : 'Follow'}
                       </button>
                     </div>

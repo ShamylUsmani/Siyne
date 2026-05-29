@@ -48,16 +48,16 @@ body {
 }
 
 @layer components {
-  /* ── primary button — red gradient (same in both modes) ── */
+  /* ── primary button — crimson gradient (same in both modes) ── */
   .btn-primary {
     @apply text-white px-5 py-2.5 rounded-lg font-medium transition-all duration-150
            disabled:opacity-50 disabled:cursor-not-allowed inline-block;
-    background: linear-gradient(135deg, #b80000 0%, #5c0000 100%);
-    box-shadow: 0 2px 8px rgba(149,0,0,0.30);
+    background: linear-gradient(135deg, #B01E36 0%, #4A0818 100%);
+    box-shadow: 0 2px 8px rgba(176,30,54,0.32);
   }
   .btn-primary:hover:not(:disabled) {
-    background: linear-gradient(135deg, #950000 0%, #450000 100%);
-    box-shadow: 0 4px 14px rgba(149,0,0,0.42);
+    background: linear-gradient(135deg, #8A1228 0%, #360510 100%);
+    box-shadow: 0 4px 14px rgba(176,30,54,0.44);
     transform: translateY(-1px);
   }
   .btn-primary:active:not(:disabled) { transform: translateY(0); }
@@ -102,9 +102,17 @@ body {
   /* ── siyne logo gradient (same in both modes) ── */
   .siyne-logo {
     @apply font-bold tracking-tight;
-    background: linear-gradient(135deg, #950000, #e00000);
+    background: linear-gradient(135deg, #6E0D20, #D63A52);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+}
+
+/* touch devices: always show upload overlays (no hover available) */
+@media (hover: none) {
+  .upload-hover {
+    opacity: 1 !important;
+    background: rgba(0, 0, 0, 0.35) !important;
   }
 }

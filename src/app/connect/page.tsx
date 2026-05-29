@@ -101,7 +101,7 @@ export default function ConnectPage() {
             <button key={t} onClick={() => setTab(t)}
               className="flex-1 py-2 text-sm font-semibold rounded-lg transition-all"
               style={tab === t
-                ? { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }
+                ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
                 : { color: 'var(--fg3)' }}>
               {t === 'discover' ? 'Discover' : `Following · ${following.length}`}
             </button>
@@ -124,7 +124,7 @@ export default function ConnectPage() {
                 <div key={p.uid} className="card flex items-center gap-4">
                   <Link href={`/profile/${p.uid}`}>
                     <div className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-base overflow-hidden"
-                      style={{ background: p.photoURL ? 'transparent' : 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                      style={{ background: p.photoURL ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                       {p.photoURL
                         ? <img src={p.photoURL} className="w-full h-full object-cover" alt={p.name} />
                         : p.name?.[0]?.toUpperCase() ?? '?'}
@@ -154,7 +154,7 @@ export default function ConnectPage() {
                       className="text-xs font-semibold px-4 py-1.5 rounded-lg transition-all"
                       style={isF
                         ? { background: 'var(--sur)', color: 'var(--fg2)', border: '1px solid var(--fg5)' }
-                        : { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                        : { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                       {busy === p.uid ? '…' : isF ? 'Unfollow' : 'Follow'}
                     </button>
                   </div>

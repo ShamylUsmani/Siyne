@@ -172,7 +172,7 @@ function SearchResults() {
             <button key={t.key} onClick={() => setTab(t.key)}
               className="px-4 py-1.5 rounded-full text-sm font-medium transition-all"
               style={tab === t.key
-                ? { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }
+                ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
                 : { background: 'var(--sur)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
               {t.label}
             </button>
@@ -198,7 +198,7 @@ function SearchResults() {
               <div key={u.uid} className="card flex items-center gap-4">
                 <Link href={`/profile/${u.uid}`} className="flex-shrink-0">
                   <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-base overflow-hidden"
-                    style={{ background: u.photoURL ? 'transparent' : 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                    style={{ background: u.photoURL ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                     {u.photoURL
                       ? <img src={u.photoURL} alt={u.name} className="w-full h-full object-cover" />
                       : u.name[0]?.toUpperCase() ?? '?'}
@@ -231,7 +231,7 @@ function SearchResults() {
                     className="text-xs font-semibold px-4 py-1.5 rounded-lg transition-all"
                     style={following.includes(u.uid)
                       ? { background: 'var(--fg5)', color: 'var(--fg2)', border: '1px solid var(--fg5)' }
-                      : { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }}>
+                      : { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                     {busy === u.uid ? '…' : following.includes(u.uid) ? 'Following' : 'Follow'}
                   </button>
                 </div>

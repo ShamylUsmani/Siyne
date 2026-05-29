@@ -273,7 +273,7 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--sur)'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
                   <svg className="w-5 h-5"
-                    style={{ color: myRx === type ? '#e00000' : 'var(--fg2)' }}
+                    style={{ color: myRx === type ? '#B01E36' : 'var(--fg2)' }}
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <RxIcon type={type} active={myRx === type} />
                   </svg>
@@ -287,7 +287,7 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
             disabled={!user}
             className="flex items-center gap-2 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-all"
             style={{
-              color:      myRx ? '#ff4545'                      : 'var(--fg3)',
+              color:      myRx ? '#D63A52'                      : 'var(--fg3)',
               background: myRx ? 'rgba(224,0,0,0.12)'           : 'transparent',
               border:     myRx ? '1px solid rgba(224,0,0,0.20)' : '1px solid transparent',
             }}>
@@ -367,7 +367,7 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                     <button
                       onClick={() => setCommentMedia('')}
                       className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
-                      style={{ background: '#e00000', color: 'white' }}>
+                      style={{ background: '#B01E36', color: 'white' }}>
                       ×
                     </button>
                   </div>
@@ -436,8 +436,8 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
               <label key={reason} className="flex items-start gap-3 cursor-pointer group">
                 <div className="w-4 h-4 rounded-full border flex-shrink-0 mt-0.5 flex items-center justify-center transition-colors"
                   style={{
-                    borderColor: reportReason === reason ? '#e00000' : 'var(--fg5)',
-                    background:  reportReason === reason ? '#e00000' : 'transparent',
+                    borderColor: reportReason === reason ? '#B01E36' : 'var(--fg5)',
+                    background:  reportReason === reason ? '#B01E36' : 'transparent',
                   }}
                   onClick={() => setReason(reason)}>
                   {reportReason === reason && <div className="w-1.5 h-1.5 rounded-full bg-white" />}

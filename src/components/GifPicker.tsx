@@ -95,7 +95,7 @@ export default function GifPicker({ onSelect, onClose }: { onSelect: (url: strin
           ) : loading ? (
             <div className="h-full flex items-center justify-center">
               <div className="w-6 h-6 rounded-full border-2 animate-spin"
-                style={{ borderColor: 'var(--fg5)', borderTopColor: '#e00000' }} />
+                style={{ borderColor: 'var(--fg5)', borderTopColor: '#B01E36' }} />
             </div>
           ) : gifs.length === 0 ? (
             <p className="text-center text-xs py-10" style={{ color: 'var(--fg4)' }}>

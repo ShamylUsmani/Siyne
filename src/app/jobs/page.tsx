@@ -125,7 +125,7 @@ function PillGroup({ label, options, value, onChange }: {
           <button key={opt} type="button" onClick={() => onChange(opt)}
             className="text-sm px-4 py-1.5 rounded-lg font-medium transition-all"
             style={value === opt
-              ? { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }
+              ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
               : { background: 'var(--sur)', border: '1px solid var(--fg5)', color: 'var(--fg3)' }}>
             {opt}
           </button>
@@ -145,7 +145,7 @@ function FilterPill<T extends string>({
         <button key={o.value} onClick={() => onChange(o.value)}
           className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all"
           style={value === o.value
-            ? { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }
+            ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
             : { background: 'var(--sur)', border: '1px solid var(--fg5)', color: 'var(--fg3)' }}>
           {o.label}
         </button>
@@ -277,7 +277,7 @@ function Pagination({ page, totalPages, onPage, loading }: {
     <button key={String(p) + String(label)} onClick={() => !disabled && onPage(p)} disabled={disabled || loading}
       className="min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium transition-all disabled:opacity-40"
       style={active
-        ? { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }
+        ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
         : { background: 'var(--sur)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
       {label}
     </button>
@@ -351,7 +351,7 @@ function AdzunaCard({ job }: { job: AdzunaJob }) {
       <a href={job.redirect_url} target="_blank" rel="noopener noreferrer"
         className="inline-flex items-center gap-2 text-sm font-semibold px-5 py-2 rounded-lg transition-all"
         style={{ background: 'var(--sur)', color: 'var(--fg2)', border: '1px solid var(--fg5)' }}
-        onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg,#b80000,#5c0000)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = 'transparent'; }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg,#B01E36,#4A0818)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = 'transparent'; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'var(--sur)'; e.currentTarget.style.color = 'var(--fg2)'; e.currentTarget.style.borderColor = 'var(--fg5)'; }}>
         Apply / View Job ↗
       </a>
@@ -507,7 +507,7 @@ function AustralianJobs() {
             Filters
             {activeFilters > 0 && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                style={{ background: '#e00000', color: 'white' }}>{activeFilters}</span>
+                style={{ background: '#B01E36', color: 'white' }}>{activeFilters}</span>
             )}
             <svg className={`w-3 h-3 transition-transform ${filtersOpen ? 'rotate-180' : ''}`}
               fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -520,7 +520,7 @@ function AustralianJobs() {
               setSortBy('relevance'); setDateFilter(''); setJobType(''); setSalPreset(0); setPage(1);
               fetchJobs(keyword, location, 1, 'relevance', '', '', 0);
             }}
-              className="text-xs font-medium" style={{ color: '#ff4545' }}>
+              className="text-xs font-medium" style={{ color: '#D63A52' }}>
               Clear filters
             </button>
           )}
@@ -563,7 +563,7 @@ function AustralianJobs() {
                   <button key={s.label} onClick={() => { setSalPreset(i); setPage(1); fetchJobs(keyword, location, 1, sortBy, dateFilter, jobType, i); }}
                     className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all"
                     style={salPreset === i
-                      ? { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }
+                      ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
                       : { background: 'var(--sur)', border: '1px solid var(--fg5)', color: 'var(--fg3)' }}>
                     {s.label}
                   </button>
@@ -675,7 +675,7 @@ export default function JobsPage() {
             <button key={key} onClick={() => setMainTab(key)}
               className="flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all"
               style={mainTab === key
-                ? { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }
+                ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
                 : { color: 'var(--fg3)' }}>
               {label}
             </button>
@@ -727,7 +727,7 @@ export default function JobsPage() {
                 <button key={t} onClick={() => setFilter(t)}
                   className="text-xs font-medium px-3 py-1.5 rounded-full transition-all"
                   style={filter === t
-                    ? { background: 'linear-gradient(135deg,#b80000,#5c0000)', color: 'white' }
+                    ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
                     : { background: 'var(--fg5)', border: '1px solid var(--fg5)', color: 'var(--fg3)' }}>
                   {t}
                 </button>
