@@ -15,6 +15,7 @@ interface Conv {
   id:           string;
   participants: string[];
   names:        Record<string, string>;
+  photos?:      Record<string, string>;
   lastMsg:      string;
   lastAt:       { seconds: number } | null;
   unread:       Record<string, number>;
@@ -129,31 +130,46 @@ export default function MessagesPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="divide-y" style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--fg5)', background: 'var(--card-bg)' }}>
             {convs.map(c => {
-              const otherUid  = c.participants.find(p => p !== user.uid) ?? '';
-              const otherName = c.names?.[otherUid] ?? 'Unknown';
-              const unread    = c.unread?.[user.uid] ?? 0;
+              const otherUid   = c.participants.find(p => p !== user.uid) ?? '';
+              const otherName  = c.names?.[otherUid] ?? 'Unknown';
+              const otherPhoto = c.photos?.[otherUid] ?? '';
+              const unread     = c.unread?.[user.uid] ?? 0;
               return (
                 <Link key={c.id} href={`/messages/${c.id}`}
-                  className="card flex items-center gap-4 hover:border-white/20 transition-colors block">
-                  <div className="w-11 h-11 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-sm"
+                  className="flex items-center gap-3 px-4 py-3.5 transition-colors"
+                  style={{ borderColor: 'var(--sur)' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--sur)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+
+                  {/* avatar */}
+                  <div className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-sm overflow-hidden"
                     style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
-                    {otherName[0]?.toUpperCase() ?? '?'}
+                    {otherPhoto
+                      ? <img src={otherPhoto} alt={otherName} className="w-full h-full object-cover" />
+                      : otherName[0]?.toUpperCase() ?? '?'}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-sm truncate" style={{ color: 'var(--fg1)' }}>{otherName}</p>
-                      {c.lastAt && (
-                        <span className="text-xs flex-shrink-0" style={{ color: 'var(--fg4)' }}>
-                          {timeAgo(c.lastAt.seconds * 1000)}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs truncate mt-0.5" style={{ color: 'var(--fg3)' }}>
-                      {c.lastMsg || 'No messages yet'}
+
+                  {/* name — left fixed column */}
+                  <div className="w-28 flex-shrink-0 min-w-0">
+                    <p className="font-semibold text-sm truncate" style={{ color: 'var(--fg1)' }}>
+                      {otherName}
                     </p>
+                    {c.lastAt && (
+                      <p className="text-[11px] mt-0.5" style={{ color: 'var(--fg4)' }}>
+                        {timeAgo(c.lastAt.seconds * 1000)}
+                      </p>
+                    )}
                   </div>
+
+                  {/* message preview — right fills remaining space */}
+                  <p className="flex-1 text-sm truncate min-w-0"
+                    style={{ color: unread > 0 ? 'var(--fg2)' : 'var(--fg4)', fontWeight: unread > 0 ? 500 : 400 }}>
+                    {c.lastMsg || 'No messages yet'}
+                  </p>
+
+                  {/* unread badge */}
                   {unread > 0 && (
                     <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
                       style={{ background: '#B01E36' }}>

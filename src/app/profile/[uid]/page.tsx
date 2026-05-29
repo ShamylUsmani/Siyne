@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   doc, getDoc, setDoc,
@@ -14,6 +14,22 @@ import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import PostCard, { Post } from '@/components/PostCard';
+import Cropper from 'react-easy-crop';
+import type { Area } from 'react-easy-crop';
+
+async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<Blob> {
+  const image = new Image();
+  image.src = imageSrc;
+  await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = reject; });
+  const canvas = document.createElement('canvas');
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => { if (blob) resolve(blob); else reject(new Error('Canvas empty')); }, 'image/jpeg', 0.92);
+  });
+}
 
 interface WorkExp {
   id: string;
@@ -71,6 +87,14 @@ export default function ProfilePage() {
   const [savingExp, setSavingExp] = useState(false);
   const [imgError, setImgError]   = useState('');
   const [isFollowing, setIsFollowing] = useState(false);
+
+  /* crop modal state */
+  const [cropSrc, setCropSrc]           = useState<string | null>(null);
+  const [crop, setCrop]                 = useState({ x: 0, y: 0 });
+  const [zoom, setZoom]                 = useState(1);
+  const [croppedArea, setCroppedArea]   = useState<Area | null>(null);
+  const cropFileNameRef                 = useRef('avatar.jpg');
+  const onCropComplete = useCallback((_: Area, pixels: Area) => setCroppedArea(pixels), []);
   const [followBusy, setFollowBusy]   = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -111,30 +135,44 @@ export default function ProfilePage() {
     load();
   }, [profileUid, user]);
 
-  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+  /* open crop modal when file is selected */
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
+    cropFileNameRef.current = file.name;
+    const objectUrl = URL.createObjectURL(file);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCroppedArea(null);
+    setCropSrc(objectUrl);
+    e.target.value = '';
+  }
+
+  /* called when user clicks Apply in the crop modal */
+  async function applyCrop() {
+    if (!cropSrc || !croppedArea || !user) return;
+    setCropSrc(null);
     setImgError('');
     setUploadingAvatar(true);
-    const localPreview = URL.createObjectURL(file);
-    setProfile(prev => ({ ...prev, photoURL: localPreview }));
     try {
-      const url = await uploadImage(file, `users/${user.uid}/profile-picture`);
+      const blob = await getCroppedImg(cropSrc, croppedArea);
+      const croppedFile = new File([blob], cropFileNameRef.current, { type: 'image/jpeg' });
+      const localPreview = URL.createObjectURL(blob);
+      setProfile(prev => ({ ...prev, photoURL: localPreview }));
+      const url = await uploadImage(croppedFile, `users/${user.uid}/profile-picture`);
       setProfile(prev => ({ ...prev, photoURL: url }));
       try {
         await setDoc(doc(db, 'users', user.uid), { photoURL: url }, { merge: true });
         await updateProfile(user, { photoURL: url }).catch(() => {});
-      } catch (fsErr) {
-        console.error('Firestore save failed:', fsErr);
-        setImgError('Photo uploaded but could not be saved. Check Firestore rules.');
+      } catch {
+        setImgError('Photo saved to Storage but could not update your profile. Check Firestore rules.');
       }
     } catch (err) {
       console.error('Avatar upload failed:', err);
-      setImgError('Photo upload failed. Make sure Firebase Storage rules allow writes. In Firebase Console → Storage → Rules, set: allow read, write: if request.auth != null;');
+      setImgError('Upload failed. Check Firebase Storage rules allow writes to users/{userId}/*');
       setProfile(prev => ({ ...prev, photoURL: '' }));
     } finally {
       setUploadingAvatar(false);
-      e.target.value = '';
     }
   }
 
@@ -236,6 +274,55 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen">
       <Navbar />
+
+      {/* ── crop modal ─────────────────────────────── */}
+      {cropSrc && (
+        <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: 'rgba(0,0,0,0.95)' }}>
+          {/* header */}
+          <div className="flex items-center justify-between px-6 py-4 flex-shrink-0">
+            <h2 className="font-semibold text-base" style={{ color: 'var(--fg1)' }}>Adjust photo</h2>
+            <button onClick={() => setCropSrc(null)} className="text-sm px-4 py-1.5 rounded-lg"
+              style={{ color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
+              Cancel
+            </button>
+          </div>
+
+          {/* crop area */}
+          <div className="relative flex-1">
+            <Cropper
+              image={cropSrc}
+              crop={crop}
+              zoom={zoom}
+              aspect={1}
+              cropShape="round"
+              showGrid={false}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={onCropComplete}
+            />
+          </div>
+
+          {/* controls */}
+          <div className="px-6 py-5 flex-shrink-0 space-y-4">
+            <div className="flex items-center gap-4">
+              <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--fg4)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input type="range" min={1} max={3} step={0.05} value={zoom}
+                onChange={e => setZoom(Number(e.target.value))}
+                className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer accent-[#D63A52]"
+                style={{ background: `linear-gradient(to right, #D63A52 ${((zoom - 1) / 2) * 100}%, var(--fg5) 0%)` }} />
+              <svg className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--fg4)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <p className="text-xs text-center" style={{ color: 'var(--fg4)' }}>Drag to reposition · Pinch or slide to zoom</p>
+            <button onClick={applyCrop} className="btn-primary w-full py-3 text-base font-semibold">
+              {uploadingAvatar ? 'Uploading…' : 'Apply'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-2xl mx-auto px-4 py-8">
         {fetching ? (

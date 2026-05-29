@@ -251,6 +251,7 @@ export default function ConvPage() {
       await setDoc(convRef, {
         participants: [user.uid, otherUid],
         names: { [user.uid]: user.displayName ?? '', [otherUid]: other.name },
+        photos: { [user.uid]: user.photoURL ?? '', [otherUid]: other.photoURL ?? '' },
         msgs: arrayUnion(newMsg),
         lastMsg: t,
         lastAt: serverTimestamp(),
@@ -355,6 +356,7 @@ export default function ConvPage() {
         await setDoc(convRef, {
           participants: [user.uid, otherUid],
           names: { [user.uid]: user.displayName ?? '', [otherUid]: other.name },
+        photos: { [user.uid]: user.photoURL ?? '', [otherUid]: other.photoURL ?? '' },
           msgs: arrayUnion(newMsg),
           lastMsg: lastMsgText,
           lastAt: serverTimestamp(),

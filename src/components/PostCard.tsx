@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  doc, updateDoc, deleteDoc, addDoc, increment,
+  doc, getDoc, updateDoc, deleteDoc, addDoc, increment,
   collection, query, orderBy, onSnapshot,
   serverTimestamp, deleteField,
 } from 'firebase/firestore';
@@ -114,6 +114,15 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
   const myRx    = localRx[user?.uid ?? ''] as ReactionType | undefined;
   const totalRx = Object.keys(localRx).length;
 
+  /* fetch live photoURL from Firestore if post doesn't have it stored */
+  const [livePhotoURL, setLivePhotoURL] = useState(post.authorPhotoURL ?? '');
+  useEffect(() => {
+    if (post.authorPhotoURL) { setLivePhotoURL(post.authorPhotoURL); return; }
+    getDoc(doc(db, 'users', post.uid)).then(snap => {
+      if (snap.exists()) setLivePhotoURL(snap.data().photoURL ?? '');
+    }).catch(() => {});
+  }, [post.uid, post.authorPhotoURL]);
+
   /* load comments when section opens */
   useEffect(() => {
     if (!showComments) return;
@@ -220,8 +229,8 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0 overflow-hidden"
             style={{ background: 'var(--fg5)', color: 'var(--fg2)' }}>
-            {post.authorPhotoURL
-              ? <img src={post.authorPhotoURL} alt={post.authorName} className="w-full h-full object-cover" />
+            {livePhotoURL
+              ? <img src={livePhotoURL} alt={post.authorName} className="w-full h-full object-cover" />
               : post.authorName?.[0]?.toUpperCase() ?? '?'}
           </div>
           <div>
