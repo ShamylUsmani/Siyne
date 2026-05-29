@@ -1,21 +1,21 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  collection, query, orderBy, limit, onSnapshot,
-  addDoc, setDoc, doc, getDoc, serverTimestamp, updateDoc, increment,
+  doc, getDoc, onSnapshot, setDoc, updateDoc,
+  increment, serverTimestamp, arrayUnion, addDoc, collection,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/Navbar';
 
 interface Msg {
-  id:    string;
-  from:  string;
-  text:  string;
-  at:    { seconds: number } | null;
+  id:   string;
+  from: string;
+  text: string;
+  at:   number;
 }
 
 interface OtherUser {
@@ -31,14 +31,14 @@ export default function ConvPage() {
   const params   = useParams();
   const convId   = params.convId as string;
 
-  const [msgs, setMsgs]         = useState<Msg[]>([]);
-  const [text, setText]         = useState('');
-  const [sending, setSending]   = useState(false);
-  const [other, setOther]       = useState<OtherUser | null>(null);
+  const [msgs, setMsgs]               = useState<Msg[]>([]);
+  const [text, setText]               = useState('');
+  const [sending, setSending]         = useState(false);
+  const [other, setOther]             = useState<OtherUser | null>(null);
   const [msgsLoading, setMsgsLoading] = useState(true);
   const [msgsError, setMsgsError]     = useState('');
-  const bottomRef               = useRef<HTMLDivElement>(null);
-  const inputRef                = useRef<HTMLInputElement>(null);
+  const bottomRef                     = useRef<HTMLDivElement>(null);
+  const inputRef                      = useRef<HTMLInputElement>(null);
 
   const otherUid = convId.split('_').find(id => id !== user?.uid) ?? '';
 
@@ -49,26 +49,31 @@ export default function ConvPage() {
     if (!otherUid) return;
     getDoc(doc(db, 'users', otherUid)).then(snap => {
       if (snap.exists()) {
-        setOther({ uid: otherUid, name: snap.data().name ?? '', jobTitle: snap.data().jobTitle ?? '', photoURL: snap.data().photoURL });
+        setOther({
+          uid: otherUid,
+          name: snap.data().name ?? '',
+          jobTitle: snap.data().jobTitle ?? '',
+          photoURL: snap.data().photoURL,
+        });
       }
-    });
+    }).catch(() => {});
   }, [otherUid]);
 
-  /* real-time messages */
+  /* listen on the conversation document — messages stored in docs as array, no subcollection needed */
   useEffect(() => {
     if (!convId) return;
     setMsgsLoading(true);
     setMsgsError('');
-    const q = query(collection(db, 'conversations', convId, 'messages'), orderBy('at', 'asc'), limit(100));
     return onSnapshot(
-      q,
+      doc(db, 'conversations', convId),
       snap => {
-        setMsgs(snap.docs.map(d => ({ id: d.id, ...d.data() } as Msg)));
+        const raw = (snap.data()?.msgs ?? []) as Msg[];
+        setMsgs([...raw].sort((a, b) => (a.at ?? 0) - (b.at ?? 0)));
         setMsgsLoading(false);
       },
       err => {
-        console.error('Messages failed to load:', err);
-        setMsgsError('Messages could not load. Check your connection or Firestore rules.');
+        console.error('Conversation failed to load:', err);
+        setMsgsError('Could not load messages. Check your internet connection.');
         setMsgsLoading(false);
       }
     );
@@ -90,27 +95,33 @@ export default function ConvPage() {
     setSending(true);
     const t = text.trim();
     setText('');
+    const newMsg: Msg = {
+      id:   `${user.uid}_${Date.now()}`,
+      from: user.uid,
+      text: t,
+      at:   Date.now(),
+    };
     try {
-      await addDoc(collection(db, 'conversations', convId, 'messages'), {
-        from: user.uid, text: t, at: serverTimestamp(),
-      });
       await setDoc(doc(db, 'conversations', convId), {
         participants: [user.uid, otherUid],
         names: { [user.uid]: user.displayName ?? '', [otherUid]: other.name },
+        msgs: arrayUnion(newMsg),
         lastMsg: t,
         lastAt: serverTimestamp(),
       }, { merge: true });
       await updateDoc(doc(db, 'conversations', convId), {
         [`unread.${otherUid}`]: increment(1),
       }).catch(() => {});
-      /* notification */
       await addDoc(collection(db, 'notifications', otherUid, 'items'), {
         type: 'message', fromUid: user.uid,
         fromName: user.displayName ?? 'Someone',
         text: 'sent you a message', convId,
         read: false, createdAt: serverTimestamp(),
       }).catch(() => {});
-    } finally { setSending(false); inputRef.current?.focus(); }
+    } finally {
+      setSending(false);
+      inputRef.current?.focus();
+    }
   }
 
   if (loading || !user) return null;
@@ -129,9 +140,11 @@ export default function ConvPage() {
         </Link>
         {other ? (
           <Link href={`/profile/${other.uid}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
+            <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden"
               style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
-              {other.name[0]?.toUpperCase() ?? '?'}
+              {other.photoURL
+                ? <img src={other.photoURL} alt="" className="w-full h-full object-cover" />
+                : other.name[0]?.toUpperCase() ?? '?'}
             </div>
             <div>
               <p className="text-sm font-semibold" style={{ color: 'var(--fg1)' }}>{other.name}</p>
@@ -147,11 +160,13 @@ export default function ConvPage() {
       <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-6 space-y-3">
         {msgsLoading && (
           <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#B01E36', borderTopColor: 'transparent' }} />
+            <div className="w-6 h-6 border-2 rounded-full animate-spin"
+              style={{ borderColor: '#B01E36', borderTopColor: 'transparent' }} />
           </div>
         )}
         {msgsError && (
-          <p className="text-center py-8 text-sm px-4 rounded-lg" style={{ color: '#fca5a5', background: 'rgba(220,38,38,0.12)' }}>
+          <p className="text-center py-8 text-sm px-4 rounded-lg"
+            style={{ color: '#fca5a5', background: 'rgba(220,38,38,0.12)' }}>
             {msgsError}
           </p>
         )}
@@ -183,7 +198,7 @@ export default function ConvPage() {
           <input ref={inputRef} value={text} onChange={e => setText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
             placeholder="Write a message…" className="input-field text-sm flex-1" />
-          <button onClick={send} disabled={sending || !text.trim()}
+          <button onClick={send} disabled={sending || !text.trim() || !other}
             className="w-10 h-10 flex items-center justify-center rounded-xl transition-all disabled:opacity-40 flex-shrink-0"
             style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
