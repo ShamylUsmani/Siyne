@@ -144,6 +144,7 @@ export default function CityCanvas() {
 
     /* ── init ── */
     function init() {
+      if (!canvas) return;
       W = canvas.offsetWidth  || 1200;
       H = canvas.offsetHeight || 700;
       canvas.width  = W;

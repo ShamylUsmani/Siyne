@@ -24,8 +24,16 @@ export default function GifPicker({ onSelect, onClose }: { onSelect: (url: strin
         ? `https://api.giphy.com/v1/gifs/search?api_key=${key}&q=${encodeURIComponent(q.trim())}&limit=24&rating=g&lang=en`
         : `https://api.giphy.com/v1/gifs/trending?api_key=${key}&limit=24&rating=g`;
       const data = await fetch(endpoint).then(r => r.json());
-      /* eslint-disable @typescript-eslint/no-explicit-any */
-      setGifs((data.data ?? []).map((g: any) => ({
+      type GiphyItem = {
+        id: string;
+        title?: string;
+        images: {
+          original:          { url: string };
+          fixed_width_small?: { url: string };
+          downsized?:         { url: string };
+        };
+      };
+      setGifs((data.data ?? []).map((g: GiphyItem) => ({
         id:      g.id,
         url:     g.images.original.url,
         preview: g.images.fixed_width_small?.url ?? g.images.downsized?.url ?? g.images.original.url,
