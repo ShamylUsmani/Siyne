@@ -35,7 +35,9 @@ interface WorkExp {
   id: string;
   title: string;
   company: string;
+  startMonth: string;
   startYear: string;
+  endMonth: string;
   endYear: string;
   current: boolean;
   description: string;
@@ -59,8 +61,12 @@ const EMPTY: UserProfile = {
 };
 
 const EMPTY_EXP: Omit<WorkExp, 'id'> = {
-  title: '', company: '', startYear: '', endYear: '', current: false, description: '',
+  title: '', company: '', startMonth: '', startYear: '', endMonth: '', endYear: '', current: false, description: '',
 };
+
+function formatExpDate(month: string, year: string) {
+  return month && year ? `${month} ${year}` : year || month || '';
+}
 
 async function uploadImage(file: File, path: string): Promise<string> {
   const storageRef = ref(storage, path);
@@ -220,6 +226,7 @@ export default function ProfilePage() {
     const newExp: WorkExp = {
       ...expForm,
       id: Date.now().toString(),
+      endMonth: expForm.current ? '' : expForm.endMonth,
       endYear: expForm.current ? '' : expForm.endYear,
     };
     const updated = [...profile.workExperience, newExp];
@@ -496,7 +503,7 @@ export default function ProfilePage() {
                           <p className="text-sm font-semibold" style={{ color: 'var(--fg1)' }}>{exp.title}</p>
                           <p className="text-sm" style={{ color: 'var(--fg2)' }}>{exp.company}</p>
                           <p className="text-xs mt-0.5" style={{ color: 'var(--fg4)' }}>
-                            {exp.startYear} – {exp.current ? 'Present' : exp.endYear}
+                            {formatExpDate(exp.startMonth, exp.startYear)} – {exp.current ? 'Present' : formatExpDate(exp.endMonth, exp.endYear)}
                           </p>
                         </div>
                         {isOwn && (
@@ -523,13 +530,25 @@ export default function ProfilePage() {
                       <input required value={expForm.title} onChange={e => setExpForm({ ...expForm, title: e.target.value })} className="input-field text-sm" placeholder="Software Engineer" /></div>
                     <div><label style={lblXs}>Company *</label>
                       <input required value={expForm.company} onChange={e => setExpForm({ ...expForm, company: e.target.value })} className="input-field text-sm" placeholder="Google" /></div>
+                    <div><label style={lblXs}>Start month</label>
+                      <select value={expForm.startMonth} onChange={e => setExpForm({ ...expForm, startMonth: e.target.value })} className="input-field text-sm">
+                        {['', 'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map(m => (
+                          <option key={m} value={m}>{m || 'Month'}</option>
+                        ))}
+                      </select></div>
                     <div><label style={lblXs}>Start year *</label>
                       <input required value={expForm.startYear} onChange={e => setExpForm({ ...expForm, startYear: e.target.value })} className="input-field text-sm" placeholder="2020" /></div>
+                    <div><label style={lblXs}>End month</label>
+                      <select disabled={expForm.current} value={expForm.endMonth} onChange={e => setExpForm({ ...expForm, endMonth: e.target.value })} className="input-field text-sm disabled:opacity-40">
+                        {['', 'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map(m => (
+                          <option key={m} value={m}>{m || 'Month'}</option>
+                        ))}
+                      </select></div>
                     <div><label style={lblXs}>End year</label>
                       <input disabled={expForm.current} value={expForm.endYear} onChange={e => setExpForm({ ...expForm, endYear: e.target.value })} className="input-field text-sm disabled:opacity-40" placeholder="2023" /></div>
                   </div>
                   <label className="flex items-center gap-2 text-sm cursor-pointer select-none" style={{ color: 'var(--fg2)' }}>
-                    <input type="checkbox" checked={expForm.current} onChange={e => setExpForm({ ...expForm, current: e.target.checked, endYear: '' })} className="accent-navy-600 rounded" />
+                    <input type="checkbox" checked={expForm.current} onChange={e => setExpForm({ ...expForm, current: e.target.checked, endMonth: '', endYear: '' })} className="accent-navy-600 rounded" />
                     I currently work here
                   </label>
                   <div><label style={lblXs}>Description</label>

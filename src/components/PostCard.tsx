@@ -36,6 +36,8 @@ interface Comment {
   text:       string;
   createdAt:  { seconds: number } | null;
   mediaUrl?:  string;
+  parentId?:  string;
+  reactions?: Record<string, string>;
 }
 
 /* ── reaction icons ─────────────────────────────────── */
@@ -75,6 +77,7 @@ function RxIcon({ type, active }: { type: string; active: boolean }) {
 }
 
 const REACTION_TYPES: ReactionType[] = ['like', 'love', 'laugh', 'sad'];
+const COMMENT_REACTIONS = ['👍','❤️','😂','😮'];
 
 const REPORT_REASONS = [
   'Toxic or offensive language',
@@ -103,6 +106,10 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
   const [uploadingCmt, setUploadingCmt] = useState(false);
   const [showGifPicker,setShowGifPicker]= useState(false);
   const cmtImgRef = useRef<HTMLInputElement>(null);
+
+  /* reply state */
+  const [replyToId,   setReplyToId]   = useState<string | null>(null);
+  const [replyToName, setReplyToName] = useState('');
 
   /* report */
   const [showReport,  setShowReport]  = useState(false);
@@ -183,6 +190,7 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
         text: commentText.trim(), createdAt: serverTimestamp(),
       };
       if (commentMedia) payload.mediaUrl = commentMedia;
+      if (replyToId)    payload.parentId = replyToId;
       await addDoc(collection(db, 'posts', post.id, 'comments'), payload);
       await updateDoc(doc(db, 'posts', post.id), { commentCount: increment(1) });
       if (user.uid !== post.uid) {
@@ -195,7 +203,21 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
       }
       setCommentText('');
       setCommentMedia('');
+      setReplyToId(null);
+      setReplyToName('');
     } finally { setPostingCmt(false); }
+  }
+
+  async function toggleCommentReaction(commentId: string, emoji: string) {
+    if (!user) return;
+    const commentRef = doc(db, 'posts', post.id, 'comments', commentId);
+    const comment = comments.find(c => c.id === commentId);
+    const current = comment?.reactions?.[user.uid];
+    if (current === emoji) {
+      await updateDoc(commentRef, { [`reactions.${user.uid}`]: deleteField() });
+    } else {
+      await updateDoc(commentRef, { [`reactions.${user.uid}`]: emoji });
+    }
   }
 
   async function submitReport() {
@@ -342,27 +364,110 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
       {/* comment section */}
       {showComments && (
         <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--sur)' }}>
-          <div className="space-y-3 mb-4">
-            {comments.length === 0 && (
+          <div className="mb-4">
+            {comments.filter(c => !c.parentId).length === 0 && (
               <p className="text-xs text-center py-3" style={{ color: 'var(--fg4)' }}>
                 No comments yet. Be the first.
               </p>
             )}
-            {comments.map(c => (
-              <div key={c.id} className="flex gap-2.5">
-                <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
-                  style={{ background: 'var(--fg5)', color: 'var(--fg2)' }}>
-                  {c.authorName[0]?.toUpperCase()}
+            {comments.filter(c => !c.parentId).map(c => {
+              const replies = comments.filter(r => r.parentId === c.id);
+              return (
+                <div key={c.id}>
+                  {/* top-level comment */}
+                  <div className="flex gap-2.5 mt-3">
+                    <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
+                      style={{ background: 'var(--fg5)', color: 'var(--fg2)' }}>
+                      {c.authorName[0]?.toUpperCase() ?? '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="rounded-xl px-3 py-2 inline-block max-w-full" style={{ background: 'var(--sur)' }}>
+                        <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--fg2)' }}>{c.authorName}</p>
+                        <p className="text-sm leading-relaxed" style={{ color: 'var(--fg1)' }}>{c.text}</p>
+                        {c.mediaUrl && <img src={c.mediaUrl} className="mt-2 rounded-lg max-h-40 object-cover" alt="" />}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 px-1">
+                        {c.reactions && Object.entries(
+                          Object.entries(c.reactions).reduce((acc, [, emoji]) => {
+                            acc[emoji] = (acc[emoji] || 0) + 1; return acc;
+                          }, {} as Record<string, number>)
+                        ).map(([emoji, count]) => (
+                          <button key={emoji} onClick={() => toggleCommentReaction(c.id, emoji)}
+                            className="flex items-center gap-0.5 text-xs transition-colors"
+                            style={{ color: c.reactions?.[user?.uid ?? ''] === emoji ? '#D63A52' : 'var(--fg4)' }}>
+                            {emoji} <span>{count}</span>
+                          </button>
+                        ))}
+                        <div className="relative group/rxn">
+                          <button className="text-xs transition-colors" style={{ color: 'var(--fg4)' }}
+                            onMouseEnter={e => e.currentTarget.style.color = 'var(--fg2)'}
+                            onMouseLeave={e => e.currentTarget.style.color = 'var(--fg4)'}>
+                            React
+                          </button>
+                          <div className="absolute bottom-full left-0 mb-1 hidden group-hover/rxn:flex gap-1 px-2 py-1 rounded-full z-10 shadow-lg"
+                            style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)' }}>
+                            {COMMENT_REACTIONS.map(e => (
+                              <button key={e} onClick={() => toggleCommentReaction(c.id, e)}
+                                className="text-base hover:scale-125 transition-transform">{e}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <button onClick={() => { setReplyToId(c.id); setReplyToName(c.authorName); }}
+                          className="text-xs transition-colors" style={{ color: 'var(--fg4)' }}
+                          onMouseEnter={e => e.currentTarget.style.color = 'var(--fg2)'}
+                          onMouseLeave={e => e.currentTarget.style.color = 'var(--fg4)'}>
+                          Reply
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* replies */}
+                  {replies.map(r => (
+                    <div key={r.id} className="flex gap-2.5 ml-8 mt-2">
+                      <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
+                        style={{ background: 'var(--fg5)', color: 'var(--fg2)' }}>
+                        {r.authorName[0]?.toUpperCase() ?? '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="rounded-xl px-3 py-2 inline-block max-w-full" style={{ background: 'var(--sur)' }}>
+                          <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--fg2)' }}>{r.authorName}</p>
+                          <p className="text-sm leading-relaxed" style={{ color: 'var(--fg1)' }}>{r.text}</p>
+                          {r.mediaUrl && <img src={r.mediaUrl} className="mt-2 rounded-lg max-h-40 object-cover" alt="" />}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 px-1">
+                          {r.reactions && Object.entries(
+                            Object.entries(r.reactions).reduce((acc, [, emoji]) => {
+                              acc[emoji] = (acc[emoji] || 0) + 1; return acc;
+                            }, {} as Record<string, number>)
+                          ).map(([emoji, count]) => (
+                            <button key={emoji} onClick={() => toggleCommentReaction(r.id, emoji)}
+                              className="flex items-center gap-0.5 text-xs transition-colors"
+                              style={{ color: r.reactions?.[user?.uid ?? ''] === emoji ? '#D63A52' : 'var(--fg4)' }}>
+                              {emoji} <span>{count}</span>
+                            </button>
+                          ))}
+                          <div className="relative group/rxn">
+                            <button className="text-xs transition-colors" style={{ color: 'var(--fg4)' }}
+                              onMouseEnter={e => e.currentTarget.style.color = 'var(--fg2)'}
+                              onMouseLeave={e => e.currentTarget.style.color = 'var(--fg4)'}>
+                              React
+                            </button>
+                            <div className="absolute bottom-full left-0 mb-1 hidden group-hover/rxn:flex gap-1 px-2 py-1 rounded-full z-10 shadow-lg"
+                              style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)' }}>
+                              {COMMENT_REACTIONS.map(e => (
+                                <button key={e} onClick={() => toggleCommentReaction(r.id, e)}
+                                  className="text-base hover:scale-125 transition-transform">{e}</button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex-1 rounded-xl px-3 py-2" style={{ background: 'var(--sur)' }}>
-                  <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--fg2)' }}>{c.authorName}</p>
-                  {c.text && <p className="text-xs leading-relaxed" style={{ color: 'var(--fg2)' }}>{c.text}</p>}
-                  {c.mediaUrl && (
-                    <img src={c.mediaUrl} alt="" className="mt-1.5 rounded-lg max-h-40 object-cover" />
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {user && (
@@ -385,13 +490,23 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                   </div>
                 )}
 
+                {/* reply indicator */}
+                {replyToId && (
+                  <div className="flex items-center justify-between px-3 py-1.5 rounded-lg mb-1.5 text-xs"
+                    style={{ background: 'var(--sur)', color: 'var(--fg3)' }}>
+                    <span>Replying to <span style={{ color: 'var(--fg1)' }}>{replyToName}</span></span>
+                    <button onClick={() => { setReplyToId(null); setReplyToName(''); }}
+                      style={{ color: 'var(--fg4)' }}>✕</button>
+                  </div>
+                )}
+
                 {/* input row */}
                 <div className="flex items-center gap-1 rounded-xl px-3 py-2" style={{ background: 'var(--sur)' }}>
                   <input
                     value={commentText}
                     onChange={e => setCommentText(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment(); } }}
-                    placeholder="Write a comment…"
+                    placeholder={replyToId ? `Reply to ${replyToName}…` : 'Write a comment…'}
                     className="flex-1 bg-transparent text-xs outline-none"
                     style={{ color: 'var(--fg2)' }}
                   />
