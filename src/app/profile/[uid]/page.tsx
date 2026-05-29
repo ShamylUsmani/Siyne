@@ -119,7 +119,7 @@ export default function ProfilePage() {
     const localPreview = URL.createObjectURL(file);
     setProfile(prev => ({ ...prev, photoURL: localPreview }));
     try {
-      const url = await uploadImage(file, `users/${user.uid}/avatar`);
+      const url = await uploadImage(file, `users/${user.uid}/profile-picture`);
       setProfile(prev => ({ ...prev, photoURL: url }));
       try {
         await setDoc(doc(db, 'users', user.uid), { photoURL: url }, { merge: true });

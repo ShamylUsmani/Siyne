@@ -48,6 +48,7 @@ export default function FeedPage() {
   const [content, setContent]     = useState('');
   const [posting, setPosting]     = useState(false);
   const [jobTitle, setJobTitle]   = useState('');
+  const [myPhotoURL, setMyPhotoURL] = useState('');
   const [tab, setTab]             = useState<'all' | 'following'>('all');
   const [following, setFollowing] = useState<string[]>([]);
   const textareaRef               = useRef<HTMLTextAreaElement>(null);
@@ -81,6 +82,7 @@ export default function FeedPage() {
       if (snap.exists()) {
         setJobTitle((snap.data().jobTitle as string) ?? '');
         setFollowing(snap.data().following ?? []);
+        setMyPhotoURL((snap.data().photoURL as string) ?? '');
       }
     });
 
@@ -156,8 +158,8 @@ export default function FeedPage() {
     try {
       const payload: Record<string, unknown> = {
         uid: user.uid, authorName: user.displayName ?? 'Anonymous',
-        authorTitle: jobTitle, content: content.trim(),
-        likes: 0, likedBy: [], createdAt: serverTimestamp(),
+        authorTitle: jobTitle, authorPhotoURL: myPhotoURL,
+        content: content.trim(), likes: 0, likedBy: [], createdAt: serverTimestamp(),
       };
       if (postMedia) { payload.mediaUrl = postMedia; payload.mediaType = postMediaType; }
       await addDoc(collection(db, 'posts'), payload);

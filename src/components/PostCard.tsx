@@ -14,18 +14,19 @@ import GifPicker from '@/components/GifPicker';
 
 /* ── types ──────────────────────────────────────────── */
 export interface Post {
-  id:           string;
-  uid:          string;
-  authorName:   string;
-  authorTitle:  string;
-  content:      string;
-  createdAt:    { seconds: number } | null;
-  likes:        number;
-  likedBy?:     string[];
-  reactions?:   Record<string, 'like' | 'love' | 'laugh' | 'sad'>;
-  commentCount?: number;
-  mediaUrl?:    string;
-  mediaType?:   'image' | 'gif';
+  id:              string;
+  uid:             string;
+  authorName:      string;
+  authorTitle:     string;
+  authorPhotoURL?: string;
+  content:         string;
+  createdAt:       { seconds: number } | null;
+  likes:           number;
+  likedBy?:        string[];
+  reactions?:      Record<string, 'like' | 'love' | 'laugh' | 'sad'>;
+  commentCount?:   number;
+  mediaUrl?:       string;
+  mediaType?:      'image' | 'gif';
 }
 
 interface Comment {
@@ -217,9 +218,11 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
       {/* author */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0"
+          <div className="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0 overflow-hidden"
             style={{ background: 'var(--fg5)', color: 'var(--fg2)' }}>
-            {post.authorName?.[0]?.toUpperCase() ?? '?'}
+            {post.authorPhotoURL
+              ? <img src={post.authorPhotoURL} alt={post.authorName} className="w-full h-full object-cover" />
+              : post.authorName?.[0]?.toUpperCase() ?? '?'}
           </div>
           <div>
             <Link href={`/profile/${post.uid}`} className="font-medium text-sm hover:underline"

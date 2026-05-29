@@ -46,7 +46,7 @@ function AuthForm() {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(cred.user, { displayName: name });
         await setDoc(doc(db, 'users', cred.user.uid), {
-          name, email, jobTitle: '', company: '', bio: '', createdAt: serverTimestamp(),
+          name, email, jobTitle: '', company: '', bio: '', photoURL: '', createdAt: serverTimestamp(),
         });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
