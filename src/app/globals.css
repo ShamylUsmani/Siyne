@@ -99,6 +99,24 @@ body {
   .input-field::placeholder { color: var(--fg4); }
   [data-theme="light"] .input-field { color-scheme: light; }
 
+  /* select elements need solid backgrounds so native dropdown options are readable */
+  select.input-field {
+    background: #1c0a0a;
+    color-scheme: dark;
+  }
+  select.input-field option {
+    background: #1c0a0a;
+    color: rgba(255,255,255,0.92);
+  }
+  [data-theme="light"] select.input-field {
+    background: #ffffff;
+    color-scheme: light;
+  }
+  [data-theme="light"] select.input-field option {
+    background: #ffffff;
+    color: rgba(15,15,15,0.90);
+  }
+
   /* ── siyne logo gradient (same in both modes) ── */
   .siyne-logo {
     @apply font-bold tracking-tight;

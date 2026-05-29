@@ -433,7 +433,6 @@ export default function ProfilePage() {
                         {profile.company && <span style={{ color: 'var(--fg4)' }}> · {profile.company}</span>}
                       </p>
                     )}
-                    <p className="text-xs mt-1" style={{ color: 'var(--fg4)' }}>{profile.email || user.email}</p>
                     {isOwn && !profile.jobTitle && !profile.bio && (
                       <p className="mt-3 text-sm italic" style={{ color: 'var(--fg4)' }}>
                         Add your job title and bio to complete your profile.

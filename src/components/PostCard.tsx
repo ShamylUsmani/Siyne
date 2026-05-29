@@ -40,44 +40,11 @@ interface Comment {
   reactions?: Record<string, string>;
 }
 
-/* ── reaction icons ─────────────────────────────────── */
+/* ── reaction emoji map ─────────────────────────────── */
 type ReactionType = 'like' | 'love' | 'laugh' | 'sad';
-
-function RxIcon({ type, active }: { type: string; active: boolean }) {
-  const fill = active ? 'currentColor' : 'none';
-  const sw   = 1.7;
-  if (type === 'like') return (
-    <path fill={fill} strokeLinecap="round" strokeLinejoin="round" strokeWidth={sw}
-      d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-  );
-  if (type === 'love') return (
-    <path fill={fill} strokeLinecap="round" strokeLinejoin="round" strokeWidth={sw}
-      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-  );
-  if (type === 'laugh') return (
-    <>
-      <circle cx="12" cy="12" r="9" strokeWidth={sw} />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={sw}
-        fill={active ? 'var(--fg5)' : 'none'}
-        d="M8 14.5c.6 2 2.2 3.2 4 3.2s3.4-1.2 4-3.2H8z" />
-      <circle cx="9.5" cy="9.5" r="0.8" fill="currentColor" stroke="none" />
-      <circle cx="14.5" cy="9.5" r="0.8" fill="currentColor" stroke="none" />
-    </>
-  );
-  if (type === 'sad') return (
-    <>
-      <circle cx="12" cy="12" r="9" strokeWidth={sw} />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={sw}
-        d="M8.5 17c.6-1.8 2-3 3.5-3s2.9 1.2 3.5 3" />
-      <circle cx="9.5" cy="9.5" r="0.8" fill="currentColor" stroke="none" />
-      <circle cx="14.5" cy="9.5" r="0.8" fill="currentColor" stroke="none" />
-    </>
-  );
-  return null;
-}
-
 const REACTION_TYPES: ReactionType[] = ['like', 'love', 'laugh', 'sad'];
-const COMMENT_REACTIONS = ['👍','❤️','😂','😮'];
+const RX_EMOJI: Record<ReactionType, string> = { like: '👍', love: '❤️', laugh: '😂', sad: '😢' };
+const COMMENT_REACTIONS = ['👍', '❤️', '😂', '😢'];
 
 const REPORT_REASONS = [
   'Toxic or offensive language',
@@ -298,19 +265,14 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
           onMouseLeave={() => { pickerTimer.current = setTimeout(() => setShowPicker(false), 200); }}>
 
           {showPicker && (
-            <div className="absolute bottom-full left-0 mb-2 z-20 flex rounded-xl overflow-hidden"
+            <div className="absolute bottom-full left-0 mb-2 z-20 flex gap-0.5 px-1.5 py-1.5 rounded-2xl shadow-xl"
               style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)', backdropFilter: 'blur(20px)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-              {REACTION_TYPES.map((type, i) => (
+              {REACTION_TYPES.map(type => (
                 <button key={type} onClick={() => handleReact(type)}
-                  className="flex items-center justify-center w-11 h-11 transition-colors"
-                  style={{ borderRight: i < REACTION_TYPES.length - 1 ? '1px solid var(--sur)' : 'none' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--sur)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
-                  <svg className="w-5 h-5"
-                    style={{ color: myRx === type ? '#B01E36' : 'var(--fg2)' }}
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <RxIcon type={type} active={myRx === type} />
-                  </svg>
+                  className="w-10 h-10 flex items-center justify-center text-xl rounded-xl transition-all hover:scale-125"
+                  style={{ background: myRx === type ? 'rgba(176,30,54,0.25)' : 'transparent' }}
+                  title={type}>
+                  {RX_EMOJI[type]}
                 </button>
               ))}
             </div>
@@ -319,15 +281,13 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
           <button
             onClick={() => myRx ? handleReact(myRx) : handleReact('like')}
             disabled={!user}
-            className="flex items-center gap-2 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-all"
+            className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-all"
             style={{
               color:      myRx ? '#D63A52'                      : 'var(--fg3)',
-              background: myRx ? 'rgba(224,0,0,0.12)'           : 'transparent',
-              border:     myRx ? '1px solid rgba(224,0,0,0.20)' : '1px solid transparent',
+              background: myRx ? 'rgba(176,30,54,0.12)'         : 'transparent',
+              border:     myRx ? '1px solid rgba(176,30,54,0.20)' : '1px solid transparent',
             }}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <RxIcon type={myRx ?? 'like'} active={!!myRx} />
-            </svg>
+            <span className="text-base leading-none">{myRx ? RX_EMOJI[myRx] : '👍'}</span>
             {totalRx > 0 ? totalRx : 'React'}
           </button>
         </div>

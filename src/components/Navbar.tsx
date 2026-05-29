@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 
 /* ── notification type ──────────────────────────────── */
 interface Notif {
@@ -119,6 +120,7 @@ function NotifDropdown({ onClose }: { onClose: () => void }) {
 /* ── navbar ─────────────────────────────────────────── */
 export default function Navbar() {
   const { user } = useAuth();
+  const { theme, setTheme, bgTheme, setBgTheme } = useTheme();
   const router   = useRouter();
   const pathname = usePathname();
   const [menuOpen,    setMenuOpen]    = useState(false);
@@ -444,6 +446,35 @@ export default function Navbar() {
                       </>
                     )}
 
+                    {/* appearance toggles */}
+                    <div style={{ borderTop: '1px solid var(--sur)' }} />
+                    <div className="px-4 py-2.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--fg4)' }}>Appearance</p>
+                      <div className="flex gap-1.5 mb-2">
+                        {(['light', 'dark'] as const).map(t => (
+                          <button key={t} onClick={() => setTheme(t)}
+                            className="flex-1 text-xs py-1.5 rounded-lg font-medium transition-all"
+                            style={theme === t
+                              ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
+                              : { background: 'var(--sur)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
+                            {t === 'light' ? '☀️ Light' : '🌙 Dark'}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--fg4)' }}>Background</p>
+                      <div className="flex gap-1.5">
+                        {(['city', 'rainforest'] as const).map(bg => (
+                          <button key={bg} onClick={() => setBgTheme(bg)}
+                            className="flex-1 text-xs py-1.5 rounded-lg font-medium transition-all"
+                            style={bgTheme === bg
+                              ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
+                              : { background: 'var(--sur)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
+                            {bg === 'city' ? '🏙 City' : '🌿 Forest'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* sign out */}
                     <div style={{ borderTop: '1px solid var(--sur)' }} />
                     <div className="py-1">
@@ -479,15 +510,72 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* mobile menu */}
+      {/* mobile persistent search row */}
+      {user && (
+        <div ref={searchRef} className="sm:hidden px-4 py-2" style={{ borderTop: '1px solid var(--sur)' }}>
+          <form onSubmit={handleSearch}>
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+                style={{ color: 'var(--fg4)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input value={searchQ} onChange={e => setSearchQ(e.target.value)}
+                onFocus={() => ensureUsers()}
+                placeholder="Search people, companies…"
+                className="w-full text-sm py-1.5 pl-9 pr-3 rounded-lg"
+                style={{ background: 'var(--sur)', border: '1px solid var(--fg5)', color: 'var(--fg2)', outline: 'none' }}
+                autoComplete="off" />
+            </div>
+          </form>
+          {showDrop && (
+            <div className="mt-1 rounded-xl overflow-hidden z-50 relative"
+              style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)', backdropFilter: 'blur(20px)', boxShadow: '0 12px 32px rgba(0,0,0,0.6)' }}>
+              {dropResults.map((u, i) => (
+                <button key={u.uid} onClick={() => handleDropClick(u.uid)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+                  style={{ borderTop: i > 0 ? '1px solid var(--sur)' : 'none' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--sur)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
+                    style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
+                    {u.name[0]?.toUpperCase() ?? '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: 'var(--fg1)' }}>{u.name}</p>
+                    {(u.jobTitle || u.company) && (
+                      <p className="text-xs truncate" style={{ color: 'var(--fg4)' }}>
+                        {u.jobTitle}{u.jobTitle && u.company ? ' · ' : ''}{u.company}
+                      </p>
+                    )}
+                  </div>
+                </button>
+              ))}
+              {compDropResults.map((c, i) => (
+                <button key={c.id}
+                  onClick={() => { setShowDrop(false); setSearchQ(''); router.push(`/companies/${c.id}`); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+                  style={{ borderTop: (dropResults.length > 0 || i > 0) ? '1px solid var(--sur)' : 'none' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--sur)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold overflow-hidden"
+                    style={{ background: c.logoUrl ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
+                    {c.logoUrl ? <img src={c.logoUrl} alt={c.name} className="w-full h-full object-cover" /> : c.name[0]?.toUpperCase() ?? '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: 'var(--fg1)' }}>{c.name}</p>
+                    <p className="text-xs truncate" style={{ color: 'var(--fg4)' }}>Company · {c.industry}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* mobile hamburger menu */}
       {menuOpen && user && (
         <div className="sm:hidden px-4 py-3 space-y-1 border-t border-white/[0.07]"
           style={{ background: 'var(--nav-bg)' }}>
-          <form onSubmit={handleSearch} className="mb-3">
-            <input value={searchQ} onChange={e => setSearchQ(e.target.value)}
-              onFocus={() => ensureUsers()}
-              placeholder="Search people, companies…" className="input-field text-sm" />
-          </form>
           {([
             { href: '/feed',               label: 'Feed' },
             { href: '/jobs',               label: 'Jobs' },
@@ -506,6 +594,33 @@ export default function Navbar() {
               </Link>
             );
           })}
+          {/* appearance toggles */}
+          <div className="pt-2 pb-1" style={{ borderTop: '1px solid var(--sur)' }}>
+            <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--fg4)' }}>Appearance</p>
+            <div className="flex gap-1.5 mb-2">
+              {(['light', 'dark'] as const).map(t => (
+                <button key={t} onClick={() => setTheme(t)}
+                  className="flex-1 text-xs py-1.5 rounded-lg font-medium transition-all"
+                  style={theme === t
+                    ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
+                    : { background: 'var(--sur)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
+                  {t === 'light' ? '☀️ Light' : '🌙 Dark'}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--fg4)' }}>Background</p>
+            <div className="flex gap-1.5">
+              {(['city', 'rainforest'] as const).map(bg => (
+                <button key={bg} onClick={() => setBgTheme(bg)}
+                  className="flex-1 text-xs py-1.5 rounded-lg font-medium transition-all"
+                  style={bgTheme === bg
+                    ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
+                    : { background: 'var(--sur)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
+                  {bg === 'city' ? '🏙 City' : '🌿 Forest'}
+                </button>
+              ))}
+            </div>
+          </div>
           <button onClick={handleSignOut} className="block py-2 text-sm" style={{ color: '#f87171' }}>Sign out</button>
         </div>
       )}
