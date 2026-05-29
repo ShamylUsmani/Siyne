@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  doc, getDoc, onSnapshot, setDoc, updateDoc,
+  doc, getDoc, getDocs, onSnapshot, setDoc, updateDoc,
   increment, serverTimestamp, arrayUnion, addDoc, collection,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -58,6 +58,42 @@ export default function ConvPage() {
       }
     }).catch(() => {});
   }, [otherUid]);
+
+  /* one-time migration: copy old subcollection messages into the conversation doc's msgs array */
+  useEffect(() => {
+    if (!convId || !user) return;
+    const flag = `siyne_conv_migrated_${convId}`;
+    if (localStorage.getItem(flag)) return;
+
+    async function migrate() {
+      try {
+        const msgsSnap = await getDocs(collection(db, 'conversations', convId, 'messages'));
+        if (msgsSnap.empty) { localStorage.setItem(flag, '1'); return; }
+
+        const converted = msgsSnap.docs.map(d => {
+          const data = d.data();
+          const rawAt = data.at as { seconds?: number } | null;
+          const at = rawAt?.seconds ? rawAt.seconds * 1000 : Date.now();
+          return { id: d.id, from: (data.from as string) ?? '', text: (data.text as string) ?? '', at };
+        });
+
+        const convSnap = await getDoc(doc(db, 'conversations', convId));
+        const existing = ((convSnap.data()?.msgs ?? []) as { id: string; at?: number }[]);
+        const existingIds = new Set(existing.map(m => m.id));
+        const newOnly = converted.filter(m => !existingIds.has(m.id));
+
+        if (newOnly.length > 0) {
+          const merged = [...existing, ...newOnly].sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+          await setDoc(doc(db, 'conversations', convId), { msgs: merged }, { merge: true });
+        }
+        localStorage.setItem(flag, '1');
+      } catch {
+        /* subcollection not accessible — skip */
+      }
+    }
+
+    migrate();
+  }, [convId, user]);
 
   /* listen on the conversation document — messages stored in docs as array, no subcollection needed */
   useEffect(() => {
