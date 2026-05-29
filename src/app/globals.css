@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+/* ── CSS theme variables ──────────────────────────────── */
+:root {
+  /* Foreground / text — all flip white→dark in light mode */
+  --fg1: rgba(255,255,255,0.92);   /* headings / primary */
+  --fg2: rgba(255,255,255,0.70);   /* body text */
+  --fg3: rgba(255,255,255,0.50);   /* secondary */
+  --fg4: rgba(255,255,255,0.35);   /* muted */
+  --fg5: rgba(255,255,255,0.15);   /* faint / ghost / subtle border */
+  --sur: rgba(255,255,255,0.06);   /* very subtle surface */
+
+  /* Panels / structural backgrounds */
+  --card-bg: rgba(8,4,4,0.68);
+  --nav-bg:  rgba(6,0,0,0.85);
+  --drop-bg: rgba(8,2,2,0.97);
+  --page-ov: rgba(6,0,0,0.72);
+}
+
+[data-theme="light"] {
+  --fg1: rgba(15,15,15,0.90);
+  --fg2: rgba(15,15,15,0.68);
+  --fg3: rgba(15,15,15,0.52);
+  --fg4: rgba(15,15,15,0.40);
+  --fg5: rgba(15,15,15,0.18);
+  --sur: rgba(15,15,15,0.05);
+
+  --card-bg: rgba(255,255,255,0.92);
+  --nav-bg:  rgba(255,255,255,0.95);
+  --drop-bg: rgba(250,250,250,0.98);
+  --page-ov: rgba(248,246,242,0.92);
+}
+
+body {
+  @apply font-sans;
+  color: var(--fg1);
+  background: transparent;
+}
+
+[data-theme="light"] body {
+  background: #f5f3ef;
+}
+
+@layer components {
+  /* ── primary button — red gradient (same in both modes) ── */
+  .btn-primary {
+    @apply text-white px-5 py-2.5 rounded-lg font-medium transition-all duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed inline-block;
+    background: linear-gradient(135deg, #b80000 0%, #5c0000 100%);
+    box-shadow: 0 2px 8px rgba(149,0,0,0.30);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #950000 0%, #450000 100%);
+    box-shadow: 0 4px 14px rgba(149,0,0,0.42);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active:not(:disabled) { transform: translateY(0); }
+
+  /* ── outline button ── */
+  .btn-outline {
+    @apply px-5 py-2.5 rounded-lg font-medium transition-colors duration-150;
+    border: 1px solid var(--fg5);
+    color: var(--fg2);
+  }
+  .btn-outline:hover {
+    background: var(--sur);
+    border-color: var(--fg4);
+    color: var(--fg1);
+  }
+
+  /* ── dark glass card ── */
+  .card {
+    @apply rounded-xl p-6;
+    background: var(--card-bg);
+    border: 1px solid var(--fg5);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+  }
+  [data-theme="light"] .card {
+    box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+  }
+
+  /* ── dark input ── */
+  .input-field {
+    @apply w-full rounded-lg px-4 py-2.5
+           focus:outline-none focus:ring-2 focus:ring-red-800/40 focus:border-transparent transition;
+    background: var(--sur);
+    border: 1px solid var(--fg5);
+    color: var(--fg1);
+    color-scheme: dark;
+  }
+  .input-field::placeholder { color: var(--fg4); }
+  [data-theme="light"] .input-field { color-scheme: light; }
+
+  /* ── siyne logo gradient (same in both modes) ── */
+  .siyne-logo {
+    @apply font-bold tracking-tight;
+    background: linear-gradient(135deg, #950000, #e00000);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
