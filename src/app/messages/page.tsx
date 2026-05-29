@@ -1,20 +1,23 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import {
+  collection, query, where, orderBy, onSnapshot,
+  getDocs, doc, setDoc,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/Navbar';
 
 interface Conv {
-  id:          string;
+  id:           string;
   participants: string[];
-  names:       Record<string, string>;
-  lastMsg:     string;
-  lastAt:      { seconds: number } | null;
-  unread:      Record<string, number>;
+  names:        Record<string, string>;
+  lastMsg:      string;
+  lastAt:       { seconds: number } | null;
+  unread:       Record<string, number>;
 }
 
 function timeAgo(ms: number) {
@@ -25,6 +28,36 @@ function timeAgo(ms: number) {
   return `${Math.floor(h / 24)}d`;
 }
 
+/* silently migrate one conversation's old subcollection messages into the
+   conversation document's msgs array — runs once per user via localStorage flag */
+async function migrateConv(convDoc: { id: string; data: () => Record<string, unknown> }) {
+  const convId = convDoc.id;
+  try {
+    const msgsSnap = await getDocs(collection(db, 'conversations', convId, 'messages'));
+    if (msgsSnap.empty) return;
+
+    const converted = msgsSnap.docs.map(d => {
+      const data = d.data();
+      const rawAt = data.at as { seconds?: number } | null;
+      const at = rawAt?.seconds ? rawAt.seconds * 1000 : Date.now();
+      return { id: d.id, from: (data.from as string) ?? '', text: (data.text as string) ?? '', at };
+    });
+
+    const existing = ((convDoc.data().msgs ?? []) as { id: string }[]);
+    const existingIds = new Set(existing.map(m => m.id));
+    const newOnly = converted.filter(m => !existingIds.has(m.id));
+    if (newOnly.length === 0) return;
+
+    type AnyMsg = { id: string; at?: number };
+    const merged = ([...existing, ...newOnly] as AnyMsg[]).sort(
+      (a, b) => (a.at ?? 0) - (b.at ?? 0),
+    );
+    await setDoc(doc(db, 'conversations', convId), { msgs: merged }, { merge: true });
+  } catch {
+    /* subcollection unreadable (rules not yet updated) — skip silently */
+  }
+}
+
 export default function MessagesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -32,16 +65,41 @@ export default function MessagesPage() {
 
   useEffect(() => { if (!loading && !user) router.replace('/auth'); }, [user, loading, router]);
 
+  /* load conversation list */
   useEffect(() => {
     if (!user) return;
     const q = query(
       collection(db, 'conversations'),
       where('participants', 'array-contains', user.uid),
-      orderBy('lastAt', 'desc')
+      orderBy('lastAt', 'desc'),
     );
     return onSnapshot(q, snap => {
       setConvs(snap.docs.map(d => ({ id: d.id, ...d.data() } as Conv)));
     });
+  }, [user]);
+
+  /* one-time silent migration of old subcollection messages for this user */
+  useEffect(() => {
+    if (!user) return;
+    const flag = `siyne_migrated_${user.uid}`;
+    if (localStorage.getItem(flag)) return;
+
+    async function autoMigrate() {
+      try {
+        const snap = await getDocs(query(
+          collection(db, 'conversations'),
+          where('participants', 'array-contains', user!.uid),
+        ));
+        await Promise.allSettled(
+          snap.docs.map(d => migrateConv({ id: d.id, data: () => d.data() as Record<string, unknown> })),
+        );
+        localStorage.setItem(flag, '1');
+      } catch {
+        /* will retry on next visit */
+      }
+    }
+
+    autoMigrate();
   }, [user]);
 
   if (loading || !user) return null;

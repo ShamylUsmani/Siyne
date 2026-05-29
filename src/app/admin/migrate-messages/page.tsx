@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  collection, getDocs, query, where, orderBy,
+  collection, getDocs, query, orderBy,
   doc, setDoc, Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -55,10 +55,8 @@ export default function MigrateMessagesPage() {
     addLog('Starting migration…');
 
     try {
-      const convsSnap = await getDocs(query(
-        collection(db, 'conversations'),
-        where('participants', 'array-contains', user.uid),
-      ));
+      /* fetch ALL conversations — requires Firestore rules to allow admin reads */
+      const convsSnap = await getDocs(collection(db, 'conversations'));
 
       if (convsSnap.empty) {
         addLog('No conversations found. Nothing to migrate.');
