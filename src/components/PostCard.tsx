@@ -82,6 +82,7 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
   const [replyToName,  setReplyToName]  = useState('');
   /* comment reaction picker */
   const [openCmtRxId,  setOpenCmtRxId]  = useState<string | null>(null);
+  const [pickerPos,    setPickerPos]     = useState<{ top: number; left: number } | null>(null);
 
   /* report */
   const [showReport,  setShowReport]  = useState(false);
@@ -105,7 +106,7 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
   /* close comment reaction picker on outside click */
   useEffect(() => {
     if (!openCmtRxId) return;
-    function close() { setOpenCmtRxId(null); }
+    function close() { setOpenCmtRxId(null); setPickerPos(null); }
     window.addEventListener('click', close);
     return () => window.removeEventListener('click', close);
   }, [openCmtRxId]);
@@ -194,11 +195,30 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
     const commentRef = doc(db, 'posts', post.id, 'comments', commentId);
     const comment = comments.find(c => c.id === commentId);
     const current = comment?.reactions?.[user.uid];
-    if (current === emoji) {
-      await updateDoc(commentRef, { [`reactions.${user.uid}`]: deleteField() });
-    } else {
-      await updateDoc(commentRef, { [`reactions.${user.uid}`]: emoji });
+    try {
+      if (current === emoji) {
+        await updateDoc(commentRef, { [`reactions.${user.uid}`]: deleteField() });
+      } else {
+        await updateDoc(commentRef, { [`reactions.${user.uid}`]: emoji });
+      }
+    } catch (err) {
+      console.error('Comment reaction failed:', err);
     }
+  }
+
+  function openReactionPicker(ev: React.MouseEvent, commentId: string) {
+    ev.stopPropagation();
+    if (openCmtRxId === commentId) {
+      setOpenCmtRxId(null);
+      setPickerPos(null);
+      return;
+    }
+    const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+    const pickerW = 200;
+    const left = Math.min(rect.left, window.innerWidth - pickerW - 8);
+    const top = rect.top > 80 ? rect.top - 52 : rect.bottom + 6;
+    setPickerPos({ top, left });
+    setOpenCmtRxId(commentId);
   }
 
   async function submitReport() {
@@ -403,29 +423,14 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                             {emoji} <span>{count}</span>
                           </button>
                         ))}
-                        <div className="relative">
-                          <button
-                            onClick={ev => { ev.stopPropagation(); setOpenCmtRxId(openCmtRxId === c.id ? null : c.id); }}
-                            className="text-xs transition-colors" style={{ color: 'var(--fg4)' }}
-                            onMouseEnter={e => (e.currentTarget.style.color = 'var(--fg2)')}
-                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg4)')}>
-                            React
-                          </button>
-                          {openCmtRxId === c.id && (
-                            <div className="absolute bottom-full left-0 mb-1 flex gap-1 px-2 py-1.5 rounded-full z-20 shadow-xl"
-                              style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)' }}
-                              onClick={e => e.stopPropagation()}>
-                              {COMMENT_REACTIONS.map(e => (
-                                <button key={e}
-                                  onClick={() => { toggleCommentReaction(c.id, e); setOpenCmtRxId(null); }}
-                                  className="text-xl w-9 h-9 flex items-center justify-center rounded-lg hover:scale-125 transition-transform"
-                                  style={{ background: c.reactions?.[user?.uid ?? ''] === e ? 'rgba(176,30,54,0.2)' : 'transparent' }}>
-                                  {e}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                        <button
+                          onClick={ev => openReactionPicker(ev, c.id)}
+                          className="text-xs transition-colors"
+                          style={{ color: 'var(--fg4)', touchAction: 'manipulation' }}
+                          onMouseEnter={e => (e.currentTarget.style.color = 'var(--fg2)')}
+                          onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg4)')}>
+                          React
+                        </button>
                         <button onClick={() => { setReplyToId(c.id); setReplyToName(c.authorName); }}
                           className="text-xs transition-colors" style={{ color: 'var(--fg4)' }}
                           onMouseEnter={e => e.currentTarget.style.color = 'var(--fg2)'}
@@ -612,6 +617,41 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
           onSelect={url => setCommentMedia(url)}
           onClose={() => setShowGifPicker(false)}
         />
+      )}
+
+      {/* fixed-position comment reaction picker — always visible on any device */}
+      {openCmtRxId && pickerPos && (
+        <div
+          className="fixed z-[300] flex gap-1 px-2 py-1.5 rounded-full shadow-2xl"
+          style={{
+            top: pickerPos.top,
+            left: pickerPos.left,
+            background: 'var(--drop-bg)',
+            border: '1px solid var(--fg5)',
+            backdropFilter: 'blur(20px)',
+          }}
+          onClick={e => e.stopPropagation()}>
+          {COMMENT_REACTIONS.map(e => {
+            const cmt = comments.find(c => c.id === openCmtRxId);
+            const active = cmt?.reactions?.[user?.uid ?? ''] === e;
+            return (
+              <button key={e}
+                onClick={() => {
+                  toggleCommentReaction(openCmtRxId, e);
+                  setOpenCmtRxId(null);
+                  setPickerPos(null);
+                }}
+                className="text-2xl flex items-center justify-center rounded-xl transition-transform active:scale-110"
+                style={{
+                  width: 44, height: 44,
+                  touchAction: 'manipulation',
+                  background: active ? 'rgba(176,30,54,0.2)' : 'transparent',
+                }}>
+                {e}
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );
