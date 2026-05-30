@@ -429,11 +429,14 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
           {/* Portal-based post reaction picker — anchored to the React button */}
           <EmojiPickerPortal
             anchor={showPicker ? reactBtnRef.current : null}
-            emojis={REACTION_TYPES as unknown as string[]}
-            labels={Object.fromEntries(REACTION_TYPES.map(t => [t, RX_LABEL[t]]))}
-            activeEmoji={myRx}
+            emojis={REACTION_TYPES.map(t => RX_EMOJI[t])}
+            labels={Object.fromEntries(REACTION_TYPES.map(t => [RX_EMOJI[t], RX_LABEL[t]]))}
+            activeEmoji={myRx ? RX_EMOJI[myRx] : undefined}
             animateIn
-            onSelect={(type) => handleReact(type as ReactionType)}
+            onSelect={(emoji) => {
+              const type = REACTION_TYPES.find(t => RX_EMOJI[t] === emoji);
+              if (type) handleReact(type);
+            }}
             onClose={() => setShowPicker(false)}
           />
 
