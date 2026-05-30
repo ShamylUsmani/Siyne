@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import EmojiPickerPortal from '@/components/EmojiPickerPortal';
 import {
   doc, getDoc, updateDoc, deleteDoc, addDoc, increment,
   collection, query, orderBy, onSnapshot,
@@ -87,7 +88,10 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
   const [replyToName,  setReplyToName]  = useState('');
   /* comment reaction picker */
   const [openCmtRxId,  setOpenCmtRxId]  = useState<string | null>(null);
-  const [pickerPos,    setPickerPos]     = useState<{ bottom: number; left: number } | null>(null);
+  const cmtPickerAnchor = useRef<HTMLElement | null>(null);
+
+  /* post reaction picker anchor */
+  const reactBtnRef = useRef<HTMLButtonElement | null>(null);
 
   /* poll voting */
   const [pollVoting, setPollVoting] = useState(false);
@@ -111,13 +115,11 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
     }).catch(() => {});
   }, [post.uid, post.authorPhotoURL]);
 
-  /* close comment reaction picker on outside click */
-  useEffect(() => {
-    if (!openCmtRxId) return;
-    function close() { setOpenCmtRxId(null); setPickerPos(null); }
-    window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
-  }, [openCmtRxId]);
+  /* comment reaction picker close helper */
+  function closeCmtPicker() {
+    setOpenCmtRxId(null);
+    cmtPickerAnchor.current = null;
+  }
 
   /* load comments when section opens */
   useEffect(() => {
@@ -227,16 +229,10 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
   function openReactionPicker(ev: React.MouseEvent, commentId: string) {
     ev.stopPropagation();
     if (openCmtRxId === commentId) {
-      setOpenCmtRxId(null);
-      setPickerPos(null);
+      closeCmtPicker();
       return;
     }
-    const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
-    const pickerW = 216;
-    const left = Math.max(8, Math.min(rect.left, window.innerWidth - pickerW - 8));
-    // bottom = distance from bottom of viewport to top of button + small gap
-    const bottom = window.innerHeight - rect.top + 6;
-    setPickerPos({ bottom, left });
+    cmtPickerAnchor.current = ev.currentTarget as HTMLElement;
     setOpenCmtRxId(commentId);
   }
 
@@ -430,40 +426,19 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
           onMouseEnter={() => { clearTimeout(pickerTimer.current); setShowPicker(true); }}
           onMouseLeave={() => { pickerTimer.current = setTimeout(() => setShowPicker(false), 200); }}>
 
-          {/* backdrop — closes picker on mobile tap-outside */}
-          {showPicker && (
-            <div className="fixed inset-0 z-10 sm:hidden" onClick={() => setShowPicker(false)} />
-          )}
-
-          {showPicker && (
-            <div className="reaction-picker absolute bottom-full left-0 mb-3 flex items-end gap-0.5 px-2 py-2 rounded-full shadow-2xl"
-              style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}>
-              {REACTION_TYPES.map((type, i) => (
-                <div key={type} className="relative flex flex-col items-center group/emoji"
-                  style={{ animationDelay: `${i * 0.04}s` }}>
-                  {/* label appears above on hover */}
-                  <div className="absolute bottom-full mb-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap pointer-events-none
-                    opacity-0 group-hover/emoji:opacity-100 transition-opacity duration-100"
-                    style={{ background: 'rgba(0,0,0,0.78)', color: 'white' }}>
-                    {RX_LABEL[type]}
-                  </div>
-                  <button
-                    onClick={() => { handleReact(type); setShowPicker(false); }}
-                    className="flex items-center justify-center rounded-full transition-all duration-150
-                      group-hover/emoji:scale-[1.40] group-hover/emoji:-translate-y-2 active:scale-95 select-none"
-                    style={{
-                      width: 44, height: 44, fontSize: 26,
-                      background: myRx === type ? 'rgba(176,30,54,0.18)' : 'transparent',
-                      touchAction: 'manipulation',
-                    }}>
-                    {RX_EMOJI[type]}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Portal-based post reaction picker — anchored to the React button */}
+          <EmojiPickerPortal
+            anchor={showPicker ? reactBtnRef.current : null}
+            emojis={REACTION_TYPES as unknown as string[]}
+            labels={Object.fromEntries(REACTION_TYPES.map(t => [t, RX_LABEL[t]]))}
+            activeEmoji={myRx}
+            animateIn
+            onSelect={(type) => handleReact(type as ReactionType)}
+            onClose={() => setShowPicker(false)}
+          />
 
           <button
+            ref={reactBtnRef}
             onClick={() => { if (!showPicker) { myRx ? handleReact(myRx) : handleReact('like'); } }}
             onTouchStart={() => {
               longPressRef.current = setTimeout(() => setShowPicker(true), 480);
@@ -752,48 +727,17 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
         />
       )}
 
-      {/* Facebook-style fixed reaction picker — sits just above the React button */}
-      {openCmtRxId && pickerPos && (
-        <div
-          className="reaction-picker fixed z-[300] flex items-center gap-0.5 px-2 py-1.5 rounded-full shadow-2xl"
-          style={{
-            bottom: pickerPos.bottom,
-            left: pickerPos.left,
-            background: 'var(--drop-bg)',
-            border: '1px solid var(--fg5)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-          }}
-          onClick={e => e.stopPropagation()}>
-          {COMMENT_REACTIONS.map((e, i) => {
-            const cmt = comments.find(c => c.id === openCmtRxId);
-            const active = cmt?.reactions?.[user?.uid ?? ''] === e;
-            return (
-              <button key={e}
-                onClick={() => {
-                  toggleCommentReaction(openCmtRxId, e);
-                  setOpenCmtRxId(null);
-                  setPickerPos(null);
-                }}
-                title={e}
-                style={{
-                  width: 40, height: 40,
-                  fontSize: 22,
-                  touchAction: 'manipulation',
-                  background: active ? 'rgba(176,30,54,0.18)' : 'transparent',
-                  borderRadius: '50%',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'transform 0.15s ease',
-                  animationDelay: `${i * 0.04}s`,
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.4) translateY(-4px)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}>
-                {e}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* Comment reaction picker — portal anchored to the React button */}
+      <EmojiPickerPortal
+        anchor={openCmtRxId ? cmtPickerAnchor.current : null}
+        emojis={COMMENT_REACTIONS}
+        activeEmoji={openCmtRxId ? comments.find(c => c.id === openCmtRxId)?.reactions?.[user?.uid ?? ''] : undefined}
+        animateIn
+        onSelect={(emoji) => {
+          if (openCmtRxId) toggleCommentReaction(openCmtRxId, emoji);
+        }}
+        onClose={closeCmtPicker}
+      />
     </div>
   );
 }

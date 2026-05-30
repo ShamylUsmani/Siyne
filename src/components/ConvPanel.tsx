@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
+import EmojiPickerPortal from '@/components/EmojiPickerPortal';
 import {
   doc, getDoc, getDocs, onSnapshot, setDoc, updateDoc,
   increment, serverTimestamp, arrayUnion, arrayRemove, addDoc, collection,
@@ -91,6 +92,7 @@ export default function ConvPanel({ convId, embedded = false, onBack }: ConvPane
 
   // Emoji picker state
   const [openPickerMsgId, setOpenPickerMsgId] = useState<string | null>(null);
+  const emojiPickerAnchor = useRef<HTMLElement | null>(null);
 
   // Upload progress state
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -379,8 +381,14 @@ export default function ConvPanel({ convId, embedded = false, onBack }: ConvPane
 
   const handleEmojiPickerOpen = useCallback((e: React.MouseEvent, msgId: string) => {
     e.stopPropagation();
-    setOpenPickerMsgId(prev => (prev === msgId ? null : msgId));
-  }, []);
+    if (openPickerMsgId === msgId) {
+      setOpenPickerMsgId(null);
+      emojiPickerAnchor.current = null;
+    } else {
+      emojiPickerAnchor.current = e.currentTarget as HTMLElement;
+      setOpenPickerMsgId(msgId);
+    }
+  }, [openPickerMsgId]);
 
   if (!user) return null;
 
@@ -488,32 +496,16 @@ export default function ConvPanel({ convId, embedded = false, onBack }: ConvPane
                     </svg>
                   </button>
 
-                  {/* Emoji picker */}
+                  {/* Emoji picker — portal anchored to the smiley button */}
                   {openPickerMsgId === m.id && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setOpenPickerMsgId(null)} />
-                      <div
-                        className={`absolute z-50 bottom-8 ${mine ? 'right-0' : 'left-0'} flex gap-1 px-2 py-1.5 rounded-full shadow-lg`}
-                        style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)' }}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        {EMOJI_OPTIONS.map(emoji => {
-                          const emojiUsers = msgReactions[emoji] ?? [];
-                          const selected = user ? emojiUsers.includes(user.uid) : false;
-                          return (
-                            <button
-                              key={emoji}
-                              onClick={() => { toggleReaction(m.id, emoji); setOpenPickerMsgId(null); }}
-                              className="w-8 h-8 flex items-center justify-center rounded-full text-base transition-colors"
-                              style={selected ? { background: 'rgba(176,30,54,0.30)' } : { background: 'transparent' }}
-                              title={emoji}
-                            >
-                              {emoji}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </>
+                    <EmojiPickerPortal
+                      anchor={emojiPickerAnchor.current}
+                      emojis={EMOJI_OPTIONS}
+                      activeEmoji={user ? Object.entries(msgReactions).find(([, uids]) => (uids as string[]).includes(user.uid))?.[0] : undefined}
+                      animateIn
+                      onSelect={(emoji) => { toggleReaction(m.id, emoji); }}
+                      onClose={() => { setOpenPickerMsgId(null); emojiPickerAnchor.current = null; }}
+                    />
                   )}
                 </div>
 
