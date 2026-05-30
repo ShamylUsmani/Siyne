@@ -351,7 +351,15 @@ export default function CompanyPage() {
           salary: d.data().salary, careerGrowth: d.data().careerGrowth,
           jobTitle: d.data().jobTitle ?? '', createdAt: d.data().createdAt,
         }))));
-    } catch { setReviewError('Something went wrong.'); }
+    } catch (err: unknown) {
+      console.error('Review submission failed:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('permission') || msg.includes('PERMISSION_DENIED')) {
+        setReviewError('Permission denied. Add this rule to Firebase Console → Firestore → Rules:\n  match /companyReviews/{docId} { allow read, write: if request.auth != null; }');
+      } else {
+        setReviewError(`Failed to submit: ${msg}`);
+      }
+    }
     setReviewBusy(false);
   }
 

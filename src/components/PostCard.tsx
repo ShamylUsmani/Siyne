@@ -30,14 +30,15 @@ export interface Post {
 }
 
 interface Comment {
-  id:         string;
-  uid:        string;
-  authorName: string;
-  text:       string;
-  createdAt:  { seconds: number } | null;
-  mediaUrl?:  string;
-  parentId?:  string;
-  reactions?: Record<string, string>;
+  id:             string;
+  uid:            string;
+  authorName:     string;
+  authorPhotoURL?: string;
+  text:           string;
+  createdAt:      { seconds: number } | null;
+  mediaUrl?:      string;
+  parentId?:      string;
+  reactions?:     Record<string, string>;
 }
 
 /* ── reaction emoji map ─────────────────────────────── */
@@ -73,6 +74,7 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
   const [postingCmt,   setPostingCmt]   = useState(false);
   const [uploadingCmt, setUploadingCmt] = useState(false);
   const [showGifPicker,setShowGifPicker]= useState(false);
+  const [lightboxSrc, setLightboxSrc]  = useState<string | null>(null);
   const cmtImgRef = useRef<HTMLInputElement>(null);
 
   /* reply state */
@@ -155,6 +157,7 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
     try {
       const payload: Record<string, unknown> = {
         uid: user.uid, authorName: user.displayName ?? 'Anonymous',
+        authorPhotoURL: user.photoURL ?? '',
         text: commentText.trim(), createdAt: serverTimestamp(),
       };
       if (commentMedia) payload.mediaUrl = commentMedia;
@@ -250,10 +253,28 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
         </p>
       )}
 
-      {/* post media */}
+      {/* post media — click to enlarge */}
       {post.mediaUrl && (
-        <div className="mb-4 rounded-xl overflow-hidden">
-          <img src={post.mediaUrl} alt="" className="w-full object-cover max-h-96" />
+        <div className="mb-4 rounded-xl overflow-hidden cursor-zoom-in"
+          onClick={() => post.mediaType !== 'gif' && setLightboxSrc(post.mediaUrl!)}>
+          <img src={post.mediaUrl} alt=""
+            className="w-full object-contain"
+            style={{ maxHeight: '520px', background: 'rgba(0,0,0,0.08)' }} />
+        </div>
+      )}
+
+      {/* lightbox */}
+      {lightboxSrc && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.92)' }}
+          onClick={() => setLightboxSrc(null)}>
+          <button className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center text-xl z-10"
+            style={{ background: 'rgba(255,255,255,0.12)', color: 'white' }}
+            onClick={() => setLightboxSrc(null)}>✕</button>
+          <img src={lightboxSrc} alt=""
+            className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+            style={{ maxHeight: '90vh', maxWidth: '90vw' }}
+            onClick={e => e.stopPropagation()} />
         </div>
       )}
 
@@ -348,9 +369,11 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                 <div key={c.id}>
                   {/* top-level comment */}
                   <div className="flex gap-2.5 mt-3">
-                    <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
+                    <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold overflow-hidden"
                       style={{ background: 'var(--fg5)', color: 'var(--fg2)' }}>
-                      {c.authorName[0]?.toUpperCase() ?? '?'}
+                      {c.authorPhotoURL
+                        ? <img src={c.authorPhotoURL} alt={c.authorName} className="w-full h-full object-cover" />
+                        : c.authorName[0]?.toUpperCase() ?? '?'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="rounded-xl px-3 py-2 inline-block max-w-full" style={{ background: 'var(--sur)' }}>
@@ -397,9 +420,11 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                   {/* replies */}
                   {replies.map(r => (
                     <div key={r.id} className="flex gap-2.5 ml-8 mt-2">
-                      <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
+                      <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold overflow-hidden"
                         style={{ background: 'var(--fg5)', color: 'var(--fg2)' }}>
-                        {r.authorName[0]?.toUpperCase() ?? '?'}
+                        {r.authorPhotoURL
+                          ? <img src={r.authorPhotoURL} alt={r.authorName} className="w-full h-full object-cover" />
+                          : r.authorName[0]?.toUpperCase() ?? '?'}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="rounded-xl px-3 py-2 inline-block max-w-full" style={{ background: 'var(--sur)' }}>
