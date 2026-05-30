@@ -96,6 +96,21 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
   /* poll voting */
   const [pollVoting, setPollVoting] = useState(false);
 
+  /* edit post */
+  const [editingPost,    setEditingPost]    = useState(false);
+  const [editPostText,   setEditPostText]   = useState('');
+
+  /* edit comment */
+  const [editingCmtId,   setEditingCmtId]   = useState<string | null>(null);
+  const [editCmtText,    setEditCmtText]    = useState('');
+
+  /* reactors sheet */
+  interface ReactorInfo { uid: string; name: string; photoURL: string; reaction: string }
+  const [showReactors,    setShowReactors]    = useState(false);
+  const [reactorsTitle,   setReactorsTitle]   = useState('');
+  const [reactorList,     setReactorList]     = useState<ReactorInfo[]>([]);
+  const [reactorsLoading, setReactorsLoading] = useState(false);
+
   /* report */
   const [showReport,  setShowReport]  = useState(false);
   const [reportReason,setReason]      = useState('');
@@ -268,6 +283,49 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
     setPollVoting(false);
   }
 
+  /* ── edit post ── */
+  async function handleSavePostEdit() {
+    if (!user || !isOwner || !editPostText.trim()) return;
+    try {
+      await updateDoc(doc(db, 'posts', post.id), { content: editPostText.trim() });
+      setEditingPost(false);
+    } catch (err) { console.error(err); }
+  }
+
+  /* ── edit comment ── */
+  async function handleSaveCommentEdit(commentId: string) {
+    if (!user || !editCmtText.trim()) return;
+    try {
+      await updateDoc(doc(db, 'posts', post.id, 'comments', commentId), { text: editCmtText.trim() });
+      setEditingCmtId(null);
+      setEditCmtText('');
+    } catch (err) { console.error(err); }
+  }
+
+  /* ── load reactors (shared for posts and comments) ── */
+  async function loadReactors(
+    entries: [string, string][],
+    title: string,
+    emojiMapper: (v: string) => string
+  ) {
+    setReactorsTitle(title);
+    setShowReactors(true);
+    setReactorList([]);
+    setReactorsLoading(true);
+    try {
+      const docs = await Promise.all(
+        entries.slice(0, 50).map(([uid]) => getDoc(doc(db, 'users', uid)).catch(() => null))
+      );
+      setReactorList(entries.slice(0, 50).map(([uid, val], i) => ({
+        uid,
+        reaction: emojiMapper(val),
+        name: docs[i]?.data()?.name ?? 'Unknown',
+        photoURL: docs[i]?.data()?.photoURL ?? '',
+      })));
+    } catch (err) { console.error(err); }
+    setReactorsLoading(false);
+  }
+
   const timeAgo = post.createdAt ? formatTimeAgo(post.createdAt.seconds * 1000) : '';
 
   /* icon button style helper */
@@ -299,22 +357,44 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
             </p>
           </div>
         </div>
-        {isOwner && (
-          <button onClick={handleDelete} className="text-xs transition-colors"
-            style={{ color: 'var(--fg4)' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg4)')}>
-            Delete
-          </button>
+        {isOwner && !editingPost && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { setEditPostText(post.content); setEditingPost(true); }}
+              className="text-xs transition-colors hover:text-white"
+              style={{ color: 'var(--fg4)' }}>
+              Edit
+            </button>
+            <button onClick={handleDelete} className="text-xs transition-colors"
+              style={{ color: 'var(--fg4)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg4)')}>
+              Delete
+            </button>
+          </div>
         )}
       </div>
 
-      {/* content */}
-      {post.content && (
+      {/* content / edit mode */}
+      {editingPost ? (
+        <div className="mb-3 space-y-2">
+          <textarea
+            value={editPostText}
+            onChange={e => setEditPostText(e.target.value)}
+            rows={4}
+            autoFocus
+            className="input-field resize-none text-sm"
+          />
+          <div className="flex gap-2">
+            <button onClick={handleSavePostEdit} className="btn-primary text-xs py-1.5 px-4">Save</button>
+            <button onClick={() => setEditingPost(false)} className="btn-outline text-xs py-1.5 px-4">Cancel</button>
+          </div>
+        </div>
+      ) : post.content ? (
         <p className="text-sm leading-relaxed whitespace-pre-line mb-3" style={{ color: 'var(--fg2)' }}>
           {post.content}
         </p>
-      )}
+      ) : null}
 
       {/* poll display */}
       {post.poll && (
@@ -418,6 +498,25 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
         </div>
       )}
 
+      {/* reactions summary — click to see who reacted */}
+      {totalRx > 0 && (
+        <button
+          onClick={() => loadReactors(
+            Object.entries(localRx),
+            `${totalRx} ${totalRx === 1 ? 'Reaction' : 'Reactions'}`,
+            v => RX_EMOJI[v as ReactionType] ?? v
+          )}
+          className="flex items-center gap-1.5 mb-3 text-xs transition-colors hover:underline"
+          style={{ color: 'var(--fg4)' }}>
+          <span className="flex gap-0.5">
+            {Array.from(new Set(Object.values(localRx))).slice(0, 3).map(r => (
+              <span key={r}>{RX_EMOJI[r as ReactionType] ?? r}</span>
+            ))}
+          </span>
+          <span>{totalRx}</span>
+        </button>
+      )}
+
       {/* action bar */}
       <div className="flex items-center gap-2 pt-3 flex-wrap" style={{ borderTop: '1px solid var(--sur)' }}>
 
@@ -511,12 +610,23 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                         : c.authorName[0]?.toUpperCase() ?? '?'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="rounded-xl px-3 py-2 inline-block max-w-full" style={{ background: 'var(--sur)' }}>
-                        <Link href={`/profile/${c.uid}`} className="text-xs font-semibold mb-0.5 hover:underline" style={{ color: 'var(--fg2)' }}>{c.authorName}</Link>
-                        <p className="text-sm leading-relaxed" style={{ color: 'var(--fg1)' }}>{c.text}</p>
-                        {c.mediaUrl && <img src={c.mediaUrl} className="mt-2 rounded-lg max-h-40 object-cover" alt="" />}
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 px-1">
+                      {editingCmtId === c.id ? (
+                        <div className="space-y-1.5">
+                          <textarea value={editCmtText} onChange={e => setEditCmtText(e.target.value)}
+                            rows={2} autoFocus className="input-field text-sm resize-none" />
+                          <div className="flex gap-2">
+                            <button onClick={() => handleSaveCommentEdit(c.id)} className="btn-primary text-xs py-1 px-3">Save</button>
+                            <button onClick={() => setEditingCmtId(null)} className="btn-outline text-xs py-1 px-3">Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl px-3 py-2 inline-block max-w-full" style={{ background: 'var(--sur)' }}>
+                          <Link href={`/profile/${c.uid}`} className="text-xs font-semibold mb-0.5 hover:underline" style={{ color: 'var(--fg2)' }}>{c.authorName}</Link>
+                          <p className="text-sm leading-relaxed" style={{ color: 'var(--fg1)' }}>{c.text}</p>
+                          {c.mediaUrl && <img src={c.mediaUrl} className="mt-2 rounded-lg max-h-40 object-cover" alt="" />}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 mt-1 px-1 flex-wrap">
                         {c.reactions && Object.entries(
                           Object.entries(c.reactions).reduce((acc, [, emoji]) => {
                             acc[emoji] = (acc[emoji] || 0) + 1; return acc;
@@ -528,8 +638,13 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                             {emoji} <span>{count}</span>
                           </button>
                         ))}
-                        <button
-                          onClick={ev => openReactionPicker(ev, c.id)}
+                        {c.reactions && Object.keys(c.reactions).length > 0 && (
+                          <button onClick={() => loadReactors(Object.entries(c.reactions!), 'Reactions', v => v)}
+                            className="text-xs transition-colors hover:text-white" style={{ color: 'var(--fg4)' }}>
+                            · who?
+                          </button>
+                        )}
+                        <button onClick={ev => openReactionPicker(ev, c.id)}
                           className="text-xs transition-colors hover:text-white"
                           style={{ color: 'var(--fg4)', touchAction: 'manipulation' }}>
                           React
@@ -538,14 +653,16 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                           className="text-xs transition-colors hover:text-white" style={{ color: 'var(--fg4)' }}>
                           Reply
                         </button>
-                        {c.uid === user?.uid && (
-                          <button onClick={() => deleteComment(c.id)}
-                            className="text-xs ml-auto transition-colors"
-                            style={{ color: 'var(--fg4)' }}
-                            onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
-                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg4)')}>
-                            Delete
-                          </button>
+                        {c.uid === user?.uid && editingCmtId !== c.id && (
+                          <div className="ml-auto flex gap-3">
+                            <button onClick={() => { setEditCmtText(c.text); setEditingCmtId(c.id); }}
+                              className="text-xs transition-colors hover:text-white" style={{ color: 'var(--fg4)' }}>Edit</button>
+                            <button onClick={() => deleteComment(c.id)}
+                              className="text-xs transition-colors"
+                              style={{ color: 'var(--fg4)' }}
+                              onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                              onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg4)')}>Delete</button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -741,6 +858,50 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
         }}
         onClose={closeCmtPicker}
       />
+
+      {/* Reactors sheet */}
+      {showReactors && (
+        <div className="fixed inset-0 z-[400] flex items-end sm:items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowReactors(false)}>
+          <div className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl overflow-hidden"
+            style={{ background: 'var(--card-bg)', border: '1px solid var(--fg5)', maxHeight: '65vh', display: 'flex', flexDirection: 'column' }}
+            onClick={e => e.stopPropagation()}>
+            {/* header */}
+            <div className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+              style={{ borderBottom: '1px solid var(--sur)' }}>
+              <p className="font-semibold text-sm" style={{ color: 'var(--fg1)' }}>{reactorsTitle}</p>
+              <button onClick={() => setShowReactors(false)} className="text-lg leading-none"
+                style={{ color: 'var(--fg4)' }}>✕</button>
+            </div>
+            {/* list */}
+            <div className="overflow-y-auto flex-1">
+              {reactorsLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <div className="w-6 h-6 border-2 rounded-full animate-spin"
+                    style={{ borderColor: '#B01E36', borderTopColor: 'transparent' }} />
+                </div>
+              ) : reactorList.length === 0 ? (
+                <p className="text-center py-8 text-sm" style={{ color: 'var(--fg4)' }}>No reactions yet.</p>
+              ) : reactorList.map(r => (
+                <Link key={r.uid} href={`/profile/${r.uid}`}
+                  onClick={() => setShowReactors(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 transition-colors dropdown-item"
+                  style={{ borderBottom: '1px solid var(--sur)' }}>
+                  <div className="w-9 h-9 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-sm font-semibold"
+                    style={{ background: 'var(--fg5)', color: 'var(--fg2)' }}>
+                    {r.photoURL
+                      ? <img src={r.photoURL} alt={r.name} className="w-full h-full object-cover" />
+                      : r.name[0]?.toUpperCase() ?? '?'}
+                  </div>
+                  <span className="flex-1 text-sm font-medium" style={{ color: 'var(--fg1)' }}>{r.name}</span>
+                  <span className="text-2xl">{r.reaction}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
