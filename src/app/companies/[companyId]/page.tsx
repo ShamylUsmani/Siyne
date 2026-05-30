@@ -193,7 +193,8 @@ export default function CompanyPage() {
   /* ── load reviews ── */
   useEffect(() => {
     if (tab !== 'reviews') return;
-    getDocs(query(collection(db, 'companyReviews'), where('companyId','==',cid), orderBy('createdAt','desc')))
+    /* no orderBy — avoids composite index requirement; sort client-side instead */
+    getDocs(query(collection(db, 'companyReviews'), where('companyId','==',cid)))
       .then(snap => {
         const all: Review[] = snap.docs.map(d => ({
           id: d.id,
@@ -204,8 +205,10 @@ export default function CompanyPage() {
           comment:  d.data().comment ?? '',
           createdAt: d.data().createdAt,
         }));
+        all.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
         setReviews(all);
-      });
+      })
+      .catch(err => console.error('Reviews load failed:', err));
     if (user) {
       getDoc(doc(db, 'companyReviews', `${cid}_${user.uid}`)).then(d => {
         if (d.exists()) {
@@ -349,13 +352,18 @@ export default function CompanyPage() {
       setShowReviewForm(false);
       /* refresh reviews */
       getDocs(query(collection(db, 'companyReviews'), where('companyId','==',cid)))
-        .then(snap => setReviews(snap.docs.map(d => ({
-          id: d.id,
-          overall: d.data().overall, management: d.data().management,
-          workLifeBalance: d.data().workLifeBalance, culture: d.data().culture,
-          salary: d.data().salary, careerGrowth: d.data().careerGrowth,
-          jobTitle: d.data().jobTitle ?? '', createdAt: d.data().createdAt,
-        }))));
+        .then(snap => {
+          const all: Review[] = snap.docs.map(d => ({
+            id: d.id,
+            overall: d.data().overall, management: d.data().management,
+            workLifeBalance: d.data().workLifeBalance, culture: d.data().culture,
+            salary: d.data().salary, careerGrowth: d.data().careerGrowth,
+            jobTitle: d.data().jobTitle ?? '', comment: d.data().comment ?? '',
+            createdAt: d.data().createdAt,
+          }));
+          all.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+          setReviews(all);
+        }).catch(() => {});
     } catch (err: unknown) {
       console.error('Review submission failed:', err);
       const msg = err instanceof Error ? err.message : String(err);

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/Navbar';
@@ -104,10 +104,8 @@ export default function NewPitchPage() {
     setSaving(true);
 
     try {
-      const userData = await import('firebase/firestore').then(({ getDoc, doc: firestoreDoc }) =>
-        getDoc(firestoreDoc(db, 'users', user.uid))
-      );
-      const uData = userData.data();
+      const userSnap = await getDoc(doc(db, 'users', user.uid));
+      const uData = userSnap.data();
 
       await addDoc(collection(db, 'pitches'), {
         uid:            user.uid,
@@ -139,9 +137,14 @@ export default function NewPitchPage() {
       });
 
       router.replace('/pitches?success=1');
-    } catch (err) {
-      console.error(err);
-      setError('Something went wrong. Please try again.');
+    } catch (err: unknown) {
+      console.error('Pitch submit failed:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('permission') || msg.includes('PERMISSION_DENIED')) {
+        setError('Permission denied. Add this to your Firestore rules:\n  match /pitches/{id} { allow read, write: if request.auth != null; }');
+      } else {
+        setError(`Failed: ${msg}`);
+      }
     }
     setSaving(false);
   }
