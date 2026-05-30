@@ -23,7 +23,7 @@ export interface Pitch {
   traction: string;
   fundingAmount: number;
   equity: number;
-  stage: 'Pre-idea' | 'Pre-seed' | 'Seed' | 'Series A' | 'Series B';
+  stage: 'Just an Idea' | 'Building' | 'Launching' | 'Growing' | 'Scaling';
   industry: 'Tech' | 'Health' | 'Finance' | 'Education' | 'Retail' | 'Food' | 'Property' | 'Other';
   location: string;
   teamSize: number;
@@ -47,11 +47,11 @@ export const INDUSTRY_COLORS: Record<string, string> = {
 };
 
 const STAGE_COLORS: Record<string, string> = {
-  'Pre-idea': '#6b7280',
-  'Pre-seed': '#8b5cf6',
-  'Seed':     '#3b82f6',
-  'Series A': '#10b981',
-  'Series B': '#f59e0b',
+  'Just an Idea': '#6b7280',
+  'Building':     '#8b5cf6',
+  'Launching':    '#3b82f6',
+  'Growing':      '#10b981',
+  'Scaling':      '#f59e0b',
 };
 
 /* ── helpers ─────────────────────────────────────────── */

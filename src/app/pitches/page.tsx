@@ -31,7 +31,7 @@ interface InvestorProfile {
 
 /* ── constants ───────────────────────────────────────── */
 const INDUSTRIES = ['Tech', 'Health', 'Finance', 'Education', 'Retail', 'Food', 'Property', 'Other'] as const;
-const STAGES     = ['Pre-idea', 'Pre-seed', 'Seed', 'Series A', 'Series B'] as const;
+const STAGES     = ['Just an Idea', 'Building', 'Launching', 'Growing', 'Scaling'] as const;
 const AU_STATES  = ['NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT'] as const;
 const LOOKING    = ['Funding', 'Mentorship', 'Both'] as const;
 const SORT_OPTS  = [
