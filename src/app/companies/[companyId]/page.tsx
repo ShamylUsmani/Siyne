@@ -45,15 +45,16 @@ interface CompanyPost {
 }
 
 interface Review {
-  id:             string;
-  overall:        number;
-  management:     number;
+  id:              string;
+  overall:         number;
+  management:      number;
   workLifeBalance: number;
-  culture:        number;
-  salary:         number;
-  careerGrowth:   number;
-  jobTitle:       string;
-  createdAt:      { seconds: number } | null;
+  culture:         number;
+  salary:          number;
+  careerGrowth:    number;
+  jobTitle:        string;
+  comment?:        string;
+  createdAt:       { seconds: number } | null;
 }
 
 const REVIEW_CATS = [
@@ -129,9 +130,10 @@ export default function CompanyPage() {
 
   /* ─ Reviews tab ─ */
   const [reviews,      setReviews]     = useState<Review[]>([]);
-  const [myReview,     setMyReview]    = useState<Partial<Record<ReviewKey, number>> & { jobTitle?: string } | null>(null);
+  const [myReview,     setMyReview]    = useState<Partial<Record<ReviewKey, number>> & { jobTitle?: string; comment?: string } | null>(null);
   const [reviewForm,   setReviewForm]  = useState<Record<ReviewKey, number>>({ overall:0,management:0,workLifeBalance:0,culture:0,salary:0,careerGrowth:0 });
   const [reviewTitle,  setReviewTitle] = useState('');
+  const [reviewComment,setReviewComment] = useState('');
   const [reviewBusy,   setReviewBusy]  = useState(false);
   const [reviewError,  setReviewError] = useState('');
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -199,6 +201,7 @@ export default function CompanyPage() {
           workLifeBalance: d.data().workLifeBalance, culture: d.data().culture,
           salary: d.data().salary, careerGrowth: d.data().careerGrowth,
           jobTitle: d.data().jobTitle ?? '',
+          comment:  d.data().comment ?? '',
           createdAt: d.data().createdAt,
         }));
         setReviews(all);
@@ -216,6 +219,7 @@ export default function CompanyPage() {
             careerGrowth: d.data().careerGrowth ?? 0,
           });
           setReviewTitle(d.data().jobTitle ?? '');
+          setReviewComment(d.data().comment ?? '');
         }
       });
     }
@@ -334,13 +338,14 @@ export default function CompanyPage() {
       }
       await setDoc(doc(db, 'companyReviews', docId), {
         companyId: cid,
-        userId:    user.uid, // stored but never shown
+        userId:    user.uid,
         ...reviewForm,
         jobTitle:  reviewTitle,
+        comment:   reviewComment.trim(),
         createdAt: existing.exists() ? existing.data().createdAt : serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      setMyReview({ ...reviewForm, jobTitle: reviewTitle });
+      setMyReview({ ...reviewForm, jobTitle: reviewTitle, comment: reviewComment.trim() });
       setShowReviewForm(false);
       /* refresh reviews */
       getDocs(query(collection(db, 'companyReviews'), where('companyId','==',cid)))
@@ -792,6 +797,18 @@ export default function CompanyPage() {
                       <input value={reviewTitle} onChange={e => setReviewTitle(e.target.value)}
                         placeholder="e.g. Software Engineer" className="input-field text-sm" />
                     </div>
+                    <div>
+                      <label className="block text-xs mb-1.5" style={{ color: 'var(--fg3)' }}>
+                        Write a review (optional)
+                      </label>
+                      <textarea
+                        value={reviewComment}
+                        onChange={e => setReviewComment(e.target.value)}
+                        rows={4}
+                        placeholder="Share your experience — culture, management, growth opportunities, work-life balance…"
+                        className="input-field text-sm resize-none"
+                      />
+                    </div>
                     {reviewError && (
                       <p className="text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(220,38,38,0.15)', color: '#fca5a5' }}>
                         {reviewError}
@@ -827,8 +844,13 @@ export default function CompanyPage() {
                         </span>
                       )}
                     </div>
+                    {r.comment && (
+                      <p className="text-sm mt-2 leading-relaxed" style={{ color: 'var(--fg2)' }}>
+                        {r.comment}
+                      </p>
+                    )}
                     {r.createdAt && (
-                      <p className="text-xs mt-1" style={{ color: 'var(--fg4)' }}>
+                      <p className="text-xs mt-2" style={{ color: 'var(--fg4)' }}>
                         {new Date(r.createdAt.seconds * 1000).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })}
                       </p>
                     )}
