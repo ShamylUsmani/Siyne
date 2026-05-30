@@ -127,6 +127,15 @@ body {
   }
 }
 
+/* Facebook-style reaction picker pop animation */
+@keyframes reaction-pop {
+  from { opacity: 0; transform: scale(0.75) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.reaction-picker {
+  animation: reaction-pop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
 /* touch devices: always show upload overlays (no hover available) */
 @media (hover: none) {
   .upload-hover {

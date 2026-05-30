@@ -329,16 +329,6 @@ export default function CompanyPage() {
     try {
       const docId = `${cid}_${user.uid}`;
       const existing = await getDoc(doc(db, 'companyReviews', docId));
-      if (existing.exists()) {
-        const lastUpdate = existing.data().updatedAt?.toDate?.() ?? new Date(0);
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-        if (lastUpdate > sixMonthsAgo) {
-          setReviewError('You can update your review once every 6 months.');
-          setReviewBusy(false);
-          return;
-        }
-      }
       await setDoc(doc(db, 'companyReviews', docId), {
         companyId: cid,
         userId:    user.uid,

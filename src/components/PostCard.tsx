@@ -82,7 +82,7 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
   const [replyToName,  setReplyToName]  = useState('');
   /* comment reaction picker */
   const [openCmtRxId,  setOpenCmtRxId]  = useState<string | null>(null);
-  const [pickerPos,    setPickerPos]     = useState<{ top: number; left: number } | null>(null);
+  const [pickerPos,    setPickerPos]     = useState<{ bottom: number; left: number } | null>(null);
 
   /* report */
   const [showReport,  setShowReport]  = useState(false);
@@ -214,10 +214,11 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
       return;
     }
     const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
-    const pickerW = 200;
-    const left = Math.min(rect.left, window.innerWidth - pickerW - 8);
-    const top = rect.top > 80 ? rect.top - 52 : rect.bottom + 6;
-    setPickerPos({ top, left });
+    const pickerW = 216;
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - pickerW - 8));
+    // bottom = distance from bottom of viewport to top of button + small gap
+    const bottom = window.innerHeight - rect.top + 6;
+    setPickerPos({ bottom, left });
     setOpenCmtRxId(commentId);
   }
 
@@ -619,19 +620,20 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
         />
       )}
 
-      {/* fixed-position comment reaction picker — always visible on any device */}
+      {/* Facebook-style fixed reaction picker — sits just above the React button */}
       {openCmtRxId && pickerPos && (
         <div
-          className="fixed z-[300] flex gap-1 px-2 py-1.5 rounded-full shadow-2xl"
+          className="reaction-picker fixed z-[300] flex items-center gap-0.5 px-2 py-1.5 rounded-full shadow-2xl"
           style={{
-            top: pickerPos.top,
+            bottom: pickerPos.bottom,
             left: pickerPos.left,
             background: 'var(--drop-bg)',
             border: '1px solid var(--fg5)',
-            backdropFilter: 'blur(20px)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
           }}
           onClick={e => e.stopPropagation()}>
-          {COMMENT_REACTIONS.map(e => {
+          {COMMENT_REACTIONS.map((e, i) => {
             const cmt = comments.find(c => c.id === openCmtRxId);
             const active = cmt?.reactions?.[user?.uid ?? ''] === e;
             return (
@@ -641,12 +643,19 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                   setOpenCmtRxId(null);
                   setPickerPos(null);
                 }}
-                className="text-2xl flex items-center justify-center rounded-xl transition-transform active:scale-110"
+                title={e}
                 style={{
-                  width: 44, height: 44,
+                  width: 40, height: 40,
+                  fontSize: 22,
                   touchAction: 'manipulation',
-                  background: active ? 'rgba(176,30,54,0.2)' : 'transparent',
-                }}>
+                  background: active ? 'rgba(176,30,54,0.18)' : 'transparent',
+                  borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'transform 0.15s ease',
+                  animationDelay: `${i * 0.04}s`,
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.4) translateY(-4px)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}>
                 {e}
               </button>
             );
