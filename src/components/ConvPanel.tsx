@@ -59,7 +59,7 @@ function ReadTick({ read }: { read: boolean }) {
   );
 }
 
-const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
+const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😢'];
 
 interface ConvPanelProps {
   convId: string;

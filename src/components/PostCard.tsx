@@ -62,7 +62,8 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
   const [localRx,   setLocalRx]   = useState<Record<string, string>>(post.reactions ?? {});
   useEffect(() => { setLocalRx(post.reactions ?? {}); }, [post.reactions]);
   const [showPicker, setShowPicker] = useState(false);
-  const pickerTimer = useRef<ReturnType<typeof setTimeout>>();
+  const pickerTimer  = useRef<ReturnType<typeof setTimeout>>();
+  const longPressRef = useRef<ReturnType<typeof setTimeout>>();
 
   /* comments */
   const [showComments, setShowComments] = useState(false);
@@ -259,17 +260,23 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
       {/* action bar */}
       <div className="flex items-center gap-1 pt-3 flex-wrap" style={{ borderTop: '1px solid var(--sur)' }}>
 
-        {/* reaction button + picker */}
+        {/* reaction button + picker — hover on desktop, long-press on mobile */}
         <div className="relative"
           onMouseEnter={() => { clearTimeout(pickerTimer.current); setShowPicker(true); }}
           onMouseLeave={() => { pickerTimer.current = setTimeout(() => setShowPicker(false), 200); }}>
+
+          {/* backdrop — closes picker on mobile tap-outside */}
+          {showPicker && (
+            <div className="fixed inset-0 z-10 sm:hidden" onClick={() => setShowPicker(false)} />
+          )}
 
           {showPicker && (
             <div className="absolute bottom-full left-0 mb-2 z-20 flex gap-0.5 px-1.5 py-1.5 rounded-2xl shadow-xl"
               style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)', backdropFilter: 'blur(20px)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
               {REACTION_TYPES.map(type => (
-                <button key={type} onClick={() => handleReact(type)}
-                  className="w-10 h-10 flex items-center justify-center text-xl rounded-xl transition-all hover:scale-125"
+                <button key={type}
+                  onClick={() => { handleReact(type); setShowPicker(false); }}
+                  className="w-12 h-12 flex items-center justify-center text-2xl rounded-xl transition-all active:scale-125"
                   style={{ background: myRx === type ? 'rgba(176,30,54,0.25)' : 'transparent' }}
                   title={type}>
                   {RX_EMOJI[type]}
@@ -279,12 +286,17 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
           )}
 
           <button
-            onClick={() => myRx ? handleReact(myRx) : handleReact('like')}
+            onClick={() => { if (!showPicker) { myRx ? handleReact(myRx) : handleReact('like'); } }}
+            onTouchStart={() => {
+              longPressRef.current = setTimeout(() => setShowPicker(true), 480);
+            }}
+            onTouchEnd={() => clearTimeout(longPressRef.current)}
+            onTouchMove={() => clearTimeout(longPressRef.current)}
             disabled={!user}
-            className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-all"
+            className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-all select-none"
             style={{
-              color:      myRx ? '#D63A52'                      : 'var(--fg3)',
-              background: myRx ? 'rgba(176,30,54,0.12)'         : 'transparent',
+              color:      myRx ? '#D63A52'                        : 'var(--fg3)',
+              background: myRx ? 'rgba(176,30,54,0.12)'           : 'transparent',
               border:     myRx ? '1px solid rgba(176,30,54,0.20)' : '1px solid transparent',
             }}>
             <span className="text-base leading-none">{myRx ? RX_EMOJI[myRx] : '👍'}</span>

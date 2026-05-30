@@ -461,15 +461,25 @@ export default function Navbar() {
                           </button>
                         ))}
                       </div>
-                      <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--fg4)' }}>Background</p>
-                      <div className="flex gap-1.5">
-                        {(['city', 'rainforest'] as const).map(bg => (
+                      <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--fg4)' }}>Live</p>
+                      <div className="grid grid-cols-4 gap-1 mb-1.5">
+                        {([['city','🏙','City'],['rainforest','🌿','Forest'],['suburban','🏘','Suburb'],['space','🚀','Space']] as const).map(([bg,icon,label]) => (
                           <button key={bg} onClick={() => setBgTheme(bg)}
-                            className="flex-1 text-xs py-1.5 rounded-lg font-medium transition-all"
-                            style={bgTheme === bg
-                              ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
-                              : { background: 'var(--sur)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
-                            {bg === 'city' ? '🏙 City' : '🌿 Forest'}
+                            className="flex flex-col items-center justify-center py-1.5 rounded-lg text-xs transition-all"
+                            style={bgTheme === bg ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' } : { background: 'var(--sur)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
+                            <span className="text-base leading-none">{icon}</span>
+                            <span className="text-[9px] mt-0.5">{label}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--fg4)' }}>Static</p>
+                      <div className="grid grid-cols-4 gap-1">
+                        {([['skyline','🌆','Skyline'],['nature','🏔','Nature'],['desert','🏜','Desert'],['solarsystem','🪐','Solar']] as const).map(([bg,icon,label]) => (
+                          <button key={bg} onClick={() => setBgTheme(bg)}
+                            className="flex flex-col items-center justify-center py-1.5 rounded-lg text-xs transition-all"
+                            style={bgTheme === bg ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' } : { background: 'var(--sur)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
+                            <span className="text-base leading-none">{icon}</span>
+                            <span className="text-[9px] mt-0.5">{label}</span>
                           </button>
                         ))}
                       </div>
@@ -608,15 +618,25 @@ export default function Navbar() {
                 </button>
               ))}
             </div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--fg4)' }}>Background</p>
-            <div className="flex gap-1.5">
-              {(['city', 'rainforest'] as const).map(bg => (
+            <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--fg4)' }}>Live</p>
+            <div className="grid grid-cols-4 gap-1 mb-1.5">
+              {([['city','🏙','City'],['rainforest','🌿','Forest'],['suburban','🏘','Suburb'],['space','🚀','Space']] as const).map(([bg,icon,label]) => (
                 <button key={bg} onClick={() => setBgTheme(bg)}
-                  className="flex-1 text-xs py-1.5 rounded-lg font-medium transition-all"
-                  style={bgTheme === bg
-                    ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
-                    : { background: 'var(--sur)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
-                  {bg === 'city' ? '🏙 City' : '🌿 Forest'}
+                  className="flex flex-col items-center justify-center py-1.5 rounded-lg transition-all"
+                  style={bgTheme === bg ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' } : { background: 'var(--sur)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
+                  <span className="text-base leading-none">{icon}</span>
+                  <span className="text-[9px] mt-0.5">{label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--fg4)' }}>Static</p>
+            <div className="grid grid-cols-4 gap-1">
+              {([['skyline','🌆','Skyline'],['nature','🏔','Nature'],['desert','🏜','Desert'],['solarsystem','🪐','Solar']] as const).map(([bg,icon,label]) => (
+                <button key={bg} onClick={() => setBgTheme(bg)}
+                  className="flex flex-col items-center justify-center py-1.5 rounded-lg transition-all"
+                  style={bgTheme === bg ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' } : { background: 'var(--sur)', color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
+                  <span className="text-base leading-none">{icon}</span>
+                  <span className="text-[9px] mt-0.5">{label}</span>
                 </button>
               ))}
             </div>
