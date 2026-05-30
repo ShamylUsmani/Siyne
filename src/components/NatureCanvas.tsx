@@ -3,160 +3,271 @@ import { useEffect, useRef } from 'react';
 
 function rand(a: number, b: number) { return a + Math.random() * (b - a); }
 
-interface Star   { x: number; y: number; r: number; phase: number; }
-interface Aurora { bands: { x: number; width: number; col: string; phase: number; amp: number; }[]; }
+interface Star { x: number; y: number; r: number; phase: number; }
+interface Cloud { x: number; y: number; w: number; h: number; phase: number; }
+interface ShimmerLine { x: number; y: number; len: number; vx: number; opacity: number; }
+interface PineTree { x: number; h: number; w: number; }
+interface MountainPoint { x: number; y: number; }
 
 export default function NatureCanvas() {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current; if (!canvas) return;
     const ctx = canvas.getContext('2d')!;
-    let W = 0, H = 0, raf = 0, frame = 0;
+    let W = 0, H = 0, raf = 0;
     let mountainY = 0, lakeY = 0;
-    const stars: Star[] = []; const aurora: Aurora = { bands: [] };
-    let meteorTimer = 0;
-    const activeMeteors: { x: number; y: number; vx: number; vy: number; life: number; max: number }[] = [];
+    const stars: Star[] = [];
+    const clouds: Cloud[] = [];
+    const shimmerLines: ShimmerLine[] = [];
+    const pineTrees: PineTree[] = [];
+    const distPeaks: MountainPoint[] = [];
+    const midPeaks: MountainPoint[] = [];
+    const closePeaks: MountainPoint[] = [];
 
     function init() {
       if (!canvas) return;
       W = canvas.offsetWidth || 1200; H = canvas.offsetHeight || 700;
       canvas.width = W; canvas.height = H;
-      mountainY = H * 0.55; lakeY = H * 0.78;
-      stars.length = 0; aurora.bands = []; activeMeteors.length = 0;
+      mountainY = H * 0.52; lakeY = H * 0.75;
+      stars.length = 0; clouds.length = 0; shimmerLines.length = 0;
+      pineTrees.length = 0; distPeaks.length = 0; midPeaks.length = 0; closePeaks.length = 0;
 
-      for (let i = 0; i < 160; i++) stars.push({ x: rand(0, W), y: rand(0, mountainY * 0.9), r: rand(0.4, 2), phase: rand(0, Math.PI * 2) });
+      // Stars — upper third
+      for (let i = 0; i < 180; i++) {
+        stars.push({ x: rand(0, W), y: rand(0, mountainY * 0.75), r: rand(0.4, 2.2), phase: rand(0, Math.PI * 2) });
+      }
 
-      const auroraColors = [
-        'rgba(0,220,100,0.75)', 'rgba(0,180,220,0.65)', 'rgba(120,0,220,0.55)',
-      ];
+      // Wispy clouds
       for (let i = 0; i < 3; i++) {
-        aurora.bands.push({
-          x: rand(-W * 0.3, W * 1.3), width: rand(W * 0.5, W * 1.0),
-          col: auroraColors[i], phase: rand(0, Math.PI * 2) + i * 1.2, amp: rand(15, 35),
+        clouds.push({ x: rand(0, W), y: rand(mountainY * 0.1, mountainY * 0.45), w: rand(W * 0.18, W * 0.32), h: rand(20, 40), phase: rand(0, Math.PI * 2) });
+      }
+
+      // Distant mountain peaks
+      for (let x = 0; x <= W; x += 45) {
+        const t = x / W;
+        const py = mountainY - (mountainY * 0.52) * Math.max(0, Math.sin(t * Math.PI * 3.8 + 0.3) * 0.55 + Math.sin(t * Math.PI * 7.2 + 1.2) * 0.25 + 0.12);
+        distPeaks.push({ x, y: py });
+      }
+
+      // Mid mountain peaks
+      for (let x = 0; x <= W; x += 38) {
+        const t = x / W;
+        const py = mountainY - (mountainY * 0.62) * Math.max(0, Math.sin(t * Math.PI * 3.1 + 1.0) * 0.52 + Math.sin(t * Math.PI * 5.8 + 2.1) * 0.22 + 0.15);
+        midPeaks.push({ x, y: py });
+      }
+
+      // Close mountain peaks (largest, most imposing)
+      for (let x = 0; x <= W; x += 32) {
+        const t = x / W;
+        const py = mountainY - (mountainY * 0.75) * Math.max(0, Math.sin(t * Math.PI * 2.6 + 0.6) * 0.48 + Math.sin(t * Math.PI * 4.8 + 1.8) * 0.18 + 0.2);
+        closePeaks.push({ x, y: py });
+      }
+
+      // Pine trees at base of mountains
+      let tx = -15;
+      while (tx < W + 15) {
+        const th = rand(30, 65);
+        const tw = th * 0.36;
+        pineTrees.push({ x: tx, h: th, w: tw });
+        tx += rand(12, 22);
+      }
+
+      // Lake shimmer lines
+      for (let i = 0; i < 12; i++) {
+        shimmerLines.push({
+          x: rand(0, W),
+          y: lakeY + rand(8, (H - lakeY) * 0.92),
+          len: rand(30, 120),
+          vx: rand(-0.15, 0.15),
+          opacity: rand(0.04, 0.12),
         });
       }
     }
 
-    function loop() {
-      frame++; meteorTimer++;
-
-      // Sky
+    function drawSky() {
+      // Vivid aurora/sunset sky: deep purple top → golden horizon
       const sky = ctx.createLinearGradient(0, 0, 0, mountainY);
-      sky.addColorStop(0, '#020818'); sky.addColorStop(0.5, '#030a18'); sky.addColorStop(1, '#040c1a');
-      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, mountainY);
+      sky.addColorStop(0, '#1a0a30');
+      sky.addColorStop(0.18, '#3d1878');
+      sky.addColorStop(0.40, '#8040c8');
+      sky.addColorStop(0.60, '#c86090');
+      sky.addColorStop(0.80, '#f09050');
+      sky.addColorStop(1, '#f8c858');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, mountainY);
+    }
 
-      // Stars
+    function drawStars() {
       for (const s of stars) {
-        s.phase += 0.008;
-        ctx.globalAlpha = (0.5 + Math.sin(s.phase) * 0.5) * 0.88;
-        ctx.fillStyle = s.r > 1.2 ? '#fffde8' : '#c8d4ff';
+        s.phase += 0.006;
+        ctx.globalAlpha = (0.35 + Math.sin(s.phase) * 0.35) * 0.9;
+        ctx.fillStyle = s.r > 1.4 ? '#fff8e0' : '#d0c8ff';
         ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
       }
       ctx.globalAlpha = 1;
+    }
 
-      // Aurora — proper horizontal curtains
-      for (const b of aurora.bands) {
-        b.phase += 0.008;
-        ctx.save();
-        ctx.globalAlpha = 0.55 + Math.sin(b.phase) * 0.35;
-        const auroraGrad = ctx.createLinearGradient(0, 0, 0, mountainY * 0.8);
-        auroraGrad.addColorStop(0, 'transparent');
-        auroraGrad.addColorStop(0.3, b.col);
-        auroraGrad.addColorStop(0.7, b.col);
-        auroraGrad.addColorStop(1, 'transparent');
-        ctx.fillStyle = auroraGrad;
-        ctx.fillRect(0, 0, W, mountainY * 0.8);
-        ctx.restore();
+    function drawClouds() {
+      for (const c of clouds) {
+        c.x += 0.1;
+        if (c.x - c.w * 0.5 > W + 100) c.x = -c.w * 0.5 - 100;
+        c.phase += 0.003;
+        ctx.globalAlpha = 0.18 + Math.sin(c.phase) * 0.06;
+        const cg = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.w * 0.5);
+        cg.addColorStop(0, 'rgba(255,210,160,0.7)');
+        cg.addColorStop(0.6, 'rgba(255,200,150,0.3)');
+        cg.addColorStop(1, 'transparent');
+        ctx.fillStyle = cg;
+        ctx.beginPath();
+        ctx.ellipse(c.x, c.y, c.w * 0.5, c.h * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
       }
+      ctx.globalAlpha = 1;
+    }
 
-      // Meteors
-      if (meteorTimer > 340 && Math.random() < 0.04) {
-        activeMeteors.push({ x: rand(W * 0.1, W * 0.9), y: rand(5, mountainY * 0.3), vx: rand(-4, -2), vy: rand(2, 4), life: 0, max: rand(20, 35) });
-        meteorTimer = 0;
-      }
-      for (let i = activeMeteors.length - 1; i >= 0; i--) {
-        const m = activeMeteors[i];
-        m.x += m.vx; m.y += m.vy; m.life++;
-        if (m.life >= m.max) { activeMeteors.splice(i, 1); continue; }
-        const p = 1 - m.life / m.max;
-        ctx.strokeStyle = `rgba(255,255,240,${p * 0.9})`; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x - m.vx * 5, m.y - m.vy * 5); ctx.stroke();
-      }
-
-      // Back mountains
-      ctx.fillStyle = '#2a2040';
+    function drawMountains() {
+      // Distant peaks: pale purple-pink
+      ctx.fillStyle = '#8060a0';
       ctx.beginPath(); ctx.moveTo(0, mountainY);
-      for (let x = 0; x <= W; x += 50) {
-        const peak = Math.sin(x * 0.009) * 0.38 + Math.sin(x * 0.022) * 0.18;
-        ctx.lineTo(x, mountainY - (mountainY * 0.55) * Math.max(0, peak + 0.2));
-      }
+      for (const p of distPeaks) ctx.lineTo(p.x, p.y);
       ctx.lineTo(W, mountainY); ctx.closePath(); ctx.fill();
 
-      // Mid mountains
-      ctx.fillStyle = '#1a1830';
-      ctx.beginPath(); ctx.moveTo(0, mountainY);
-      for (let x = 0; x <= W; x += 40) {
-        const peak = Math.sin(x * 0.013 + 1) * 0.35 + Math.sin(x * 0.031 + 2) * 0.15;
-        ctx.lineTo(x, mountainY - (mountainY * 0.45) * Math.max(0, peak + 0.25));
-      }
-      ctx.lineTo(W, mountainY); ctx.closePath(); ctx.fill();
-
-      // Front mountains with snow caps
-      ctx.fillStyle = '#0e0e20';
-      ctx.beginPath(); ctx.moveTo(0, mountainY);
-      const peakData: { x: number; y: number }[] = [];
-      for (let x = 0; x <= W; x += 35) {
-        const peak = Math.sin(x * 0.018 + 0.5) * 0.32 + Math.sin(x * 0.04 + 1.5) * 0.12;
-        const py = mountainY - (mountainY * 0.4) * Math.max(0, peak + 0.3);
-        peakData.push({ x, y: py });
-        ctx.lineTo(x, py);
-      }
-      ctx.lineTo(W, mountainY); ctx.closePath(); ctx.fill();
-
-      // Snow caps
-      ctx.fillStyle = 'rgba(230,240,255,0.85)';
-      for (let i = 0; i < peakData.length - 1; i++) {
-        const p = peakData[i];
-        if (p.y < mountainY * 0.35) {
-          const capH = (mountainY * 0.35 - p.y) * 0.6;
-          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 15, p.y + capH); ctx.lineTo(p.x - 15, p.y + capH); ctx.closePath(); ctx.fill();
+      // Snow caps on distant peaks
+      ctx.fillStyle = 'rgba(240,235,255,0.75)';
+      for (let i = 1; i < distPeaks.length - 1; i++) {
+        const p = distPeaks[i];
+        if (p.y < mountainY * 0.38) {
+          const capH = (mountainY * 0.38 - p.y) * 0.55;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + 12, p.y + capH);
+          ctx.lineTo(p.x - 12, p.y + capH);
+          ctx.closePath(); ctx.fill();
         }
       }
 
-      // Pine tree forest (row of triangles)
-      const treeY = mountainY * 0.98;
-      ctx.fillStyle = '#0a1a0a';
-      for (let tx = -15; tx < W + 15; tx += rand(18, 30)) {
-        const th = rand(35, 65); const tw = th * 0.38;
-        ctx.beginPath(); ctx.moveTo(tx, treeY); ctx.lineTo(tx - tw, treeY); ctx.lineTo(tx, treeY - th); ctx.lineTo(tx + tw, treeY); ctx.closePath(); ctx.fill();
+      // Mid mountains: vivid purple
+      ctx.fillStyle = '#503878';
+      ctx.beginPath(); ctx.moveTo(0, mountainY);
+      for (const p of midPeaks) ctx.lineTo(p.x, p.y);
+      ctx.lineTo(W, mountainY); ctx.closePath(); ctx.fill();
+
+      // Snow caps on mid peaks
+      ctx.fillStyle = 'rgba(240,238,255,0.88)';
+      for (let i = 1; i < midPeaks.length - 1; i++) {
+        const p = midPeaks[i];
+        if (p.y < mountainY * 0.28) {
+          const capH = (mountainY * 0.28 - p.y) * 0.6;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + 16, p.y + capH);
+          ctx.lineTo(p.x - 16, p.y + capH);
+          ctx.closePath(); ctx.fill();
+        }
       }
 
-      // Ground below mountains
-      ctx.fillStyle = '#030508';
+      // Close peaks: darkest, most imposing
+      ctx.fillStyle = '#2a1848';
+      ctx.beginPath(); ctx.moveTo(0, mountainY);
+      for (const p of closePeaks) ctx.lineTo(p.x, p.y);
+      ctx.lineTo(W, mountainY); ctx.closePath(); ctx.fill();
+
+      // Heavy snow caps on close peaks
+      ctx.fillStyle = 'rgba(248,248,255,0.96)';
+      for (let i = 1; i < closePeaks.length - 1; i++) {
+        const p = closePeaks[i];
+        if (p.y < mountainY * 0.22) {
+          const capH = (mountainY * 0.22 - p.y) * 0.65;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + 22, p.y + capH);
+          ctx.lineTo(p.x - 22, p.y + capH);
+          ctx.closePath(); ctx.fill();
+        }
+      }
+    }
+
+    function drawPineForest() {
+      const treeBaseY = mountainY * 0.98;
+      for (const t of pineTrees) {
+        ctx.fillStyle = '#0a1a10';
+        ctx.beginPath();
+        ctx.moveTo(t.x, treeBaseY);
+        ctx.lineTo(t.x - t.w, treeBaseY);
+        ctx.lineTo(t.x, treeBaseY - t.h);
+        ctx.lineTo(t.x + t.w, treeBaseY);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+
+    function drawGround() {
+      ctx.fillStyle = '#0e0818';
       ctx.fillRect(0, mountainY, W, lakeY - mountainY);
+    }
 
-      // Lake
+    function drawLake() {
+      // Mirror reflection of sky (inverted gradient)
       const lake = ctx.createLinearGradient(0, lakeY, 0, H);
-      lake.addColorStop(0, '#050c18'); lake.addColorStop(1, '#030810');
-      ctx.fillStyle = lake; ctx.fillRect(0, lakeY, W, H - lakeY);
+      lake.addColorStop(0, '#f8c858');
+      lake.addColorStop(0.15, '#f09050');
+      lake.addColorStop(0.35, '#c86090');
+      lake.addColorStop(0.58, '#8040c8');
+      lake.addColorStop(0.80, '#3d1878');
+      lake.addColorStop(1, '#1a0a30');
 
-      // Ice cracks
-      ctx.strokeStyle = 'rgba(80,100,180,0.15)'; ctx.lineWidth = 0.6;
-      for (let i = 0; i < 12; i++) {
-        const sx = rand(0, W), sy = rand(lakeY + 5, H - 10);
-        ctx.beginPath(); ctx.moveTo(sx, sy);
-        for (let j = 0; j < 4; j++) ctx.lineTo(sx + rand(-30, 30), sy + rand(-8, 8));
+      // Apply as dark mirror (multiply down opacity)
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = lake;
+      ctx.fillRect(0, lakeY, W, H - lakeY);
+      ctx.globalAlpha = 1;
+
+      // Dark overlay to darken reflection naturally
+      const darkOverlay = ctx.createLinearGradient(0, lakeY, 0, H);
+      darkOverlay.addColorStop(0, 'rgba(0,0,0,0.35)');
+      darkOverlay.addColorStop(1, 'rgba(0,0,0,0.55)');
+      ctx.fillStyle = darkOverlay;
+      ctx.fillRect(0, lakeY, W, H - lakeY);
+
+      // Pine tree reflections — inverted dark shapes at top of lake
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = '#060c08';
+      for (const t of pineTrees) {
+        const refY = lakeY;
+        ctx.beginPath();
+        ctx.moveTo(t.x, refY);
+        ctx.lineTo(t.x - t.w, refY);
+        ctx.lineTo(t.x, refY + t.h * 0.5);
+        ctx.lineTo(t.x + t.w, refY);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawShimmer() {
+      for (const s of shimmerLines) {
+        s.x += s.vx;
+        if (s.x > W + s.len) s.x = -s.len;
+        if (s.x < -s.len) s.x = W + s.len;
+        ctx.globalAlpha = s.opacity;
+        ctx.strokeStyle = 'rgba(255,220,160,1)';
+        ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(s.x + s.len, s.y);
         ctx.stroke();
       }
+      ctx.globalAlpha = 1;
+    }
 
-      // Aurora reflection in lake
-      for (const b of aurora.bands) {
-        const alpha = (0.4 + Math.sin(b.phase) * 0.3) * 0.3;
-        const parts = b.col.match(/[\d.]+/g);
-        if (!parts) continue;
-        ctx.fillStyle = `rgba(${parts[0]},${parts[1]},${parts[2]},${alpha})`;
-        ctx.fillRect(0, lakeY, W, H - lakeY);
-      }
+    function loop() {
+      drawSky();
+      drawStars();
+      drawClouds();
+      drawMountains();
+      drawPineForest();
+      drawGround();
+      drawLake();
+      drawShimmer();
 
       raf = requestAnimationFrame(loop);
     }

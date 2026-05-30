@@ -33,13 +33,13 @@ export default function RainforestCanvas() {
       riverCenterY = H * 0.5;
       riverHalfWidth = W * 0.065; // ~13% total width
 
-      // Pre-generate 90-110 tree clusters scattered across full canvas
-      const count = 90 + Math.floor(Math.random() * 21);
+      // Pre-generate 250-350 tree clusters scattered across full canvas
+      const count = 250 + Math.floor(Math.random() * 101); // 250-350
       for (let i = 0; i < count; i++) {
         clusters.push({
           x: rand(-30, W + 30),
           y: rand(-30, H + 30),
-          r: rand(20, 60),
+          r: rand(10, 55),
           col: pick(CANOPY_COLS),
           shadowX: rand(2, 4),
           shadowY: rand(2, 4),
