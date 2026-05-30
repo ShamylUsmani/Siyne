@@ -6,7 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
 type Theme   = 'dark' | 'light';
-type BgTheme = 'city' | 'rainforest' | 'suburban' | 'space' | 'skyline' | 'nature' | 'desert' | 'solarsystem';
+type BgTheme = 'city' | 'rainforest' | 'suburban' | 'space' | 'skyline' | 'nature' | 'desert' | 'alps';
 
 const ThemeContext = createContext<{
   theme:      Theme;
@@ -23,7 +23,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const saved = localStorage.getItem('siyne-theme') as Theme | null;
     if (saved === 'light' || saved === 'dark') setThemeState(saved);
     const savedBg = localStorage.getItem('siyne-bg-theme') as BgTheme | null;
-    const validBg: BgTheme[] = ['city','rainforest','suburban','space','skyline','nature','desert','solarsystem'];
+    const validBg: BgTheme[] = ['city','rainforest','suburban','space','skyline','nature','desert','alps'];
     if (validBg.includes(savedBg as BgTheme)) setBgThemeState(savedBg as BgTheme);
   }, []);
 
