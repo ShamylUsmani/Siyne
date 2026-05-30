@@ -5,7 +5,7 @@ function rand(a: number, b: number) { return a + Math.random() * (b - a); }
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 
 interface TreeCluster { x: number; y: number; r: number; col: string; shadowX: number; shadowY: number; bright: boolean; }
-interface Bird { x: number; y: number; vx: number; vy: number; vFormation: boolean; vIndex: number; vLeaderRef: number; }
+interface Bird { x: number; y: number; vx: number; vy: number; paired: boolean; }
 interface RiverCP { x: number; y: number; }
 
 const CANOPY_COLS = ['#2a8c18','#1e7010','#268c1a','#32a020','#1a6010','#3ab828','#128808','#20780e'];
@@ -31,14 +31,10 @@ export default function RainforestCanvas() {
       canvas.width = W; canvas.height = H;
       clusters.length = 0; birds.length = 0;
       riverCenterY = H * 0.5;
-      riverHalfWidth = W * 0.09; // wider river
+      riverHalfWidth = W * 0.065; // ~13% total width
 
-      const mobile = W < 600;
-
-      // 400-500 main tree clusters (reduced ~40% on mobile)
-      const count = mobile
-        ? 240 + Math.floor(Math.random() * 61)
-        : 400 + Math.floor(Math.random() * 101);
+      // Pre-generate 250-350 tree clusters scattered across full canvas
+      const count = 250 + Math.floor(Math.random() * 101); // 250-350
       for (let i = 0; i < count; i++) {
         clusters.push({
           x: rand(-30, W + 30),
@@ -51,25 +47,6 @@ export default function RainforestCanvas() {
         });
       }
 
-      // 150-200 smaller undergrowth clusters (reduced on mobile)
-      const undergrowthCount = mobile
-        ? 90 + Math.floor(Math.random() * 31)
-        : 150 + Math.floor(Math.random() * 51);
-      for (let i = 0; i < undergrowthCount; i++) {
-        clusters.push({
-          x: rand(-20, W + 20),
-          y: rand(-20, H + 20),
-          r: rand(5, 20),
-          col: '#0a2a05',
-          shadowX: rand(1, 3),
-          shadowY: rand(1, 3),
-          bright: false,
-        });
-      }
-
-      // Sort clusters by y so near ones draw on top
-      clusters.sort((a, b) => a.y - b.y);
-
       // Pre-generate river control points (winding left→right)
       const segments = 6;
       riverCPs = [];
@@ -80,49 +57,21 @@ export default function RainforestCanvas() {
         riverCPs.push({ x, y });
       }
 
+      // Top & bottom banks for the river path (offset from center)
       riverTopCPs = riverCPs.map(p => ({ x: p.x, y: p.y - riverHalfWidth }));
       riverBotCPs = riverCPs.map(p => ({ x: p.x, y: p.y + riverHalfWidth }));
 
-      // Pre-generate birds: 30-50 total (20-30 on mobile)
-      const birdCount = mobile
-        ? 20 + Math.floor(Math.random() * 11)
-        : 30 + Math.floor(Math.random() * 21);
-
-      // Some birds fly in V-formations (groups of 5-7)
-      const vFormationCount = Math.floor(birdCount / 6);
-      let birdId = 0;
-
-      for (let v = 0; v < vFormationCount; v++) {
-        const vSize = 5 + Math.floor(Math.random() * 3); // 5-7 birds in V
-        const leaderIdx = birdId;
-        const vx = rand(0.5, 1.4) * (Math.random() > 0.5 ? 1 : -1);
-        const vy = rand(-0.1, 0.1);
-        for (let vi = 0; vi < vSize && birdId < birdCount; vi++) {
-          birds.push({
-            x: rand(-W * 0.1, W * 1.1),
-            y: rand(0, H),
-            vx,
-            vy,
-            vFormation: true,
-            vIndex: vi,
-            vLeaderRef: leaderIdx,
-          });
-          birdId++;
-        }
-      }
-
-      // Remaining birds fly solo/paired
-      while (birdId < birdCount) {
+      // Pre-generate birds (15-25)
+      const birdCount = 15 + Math.floor(Math.random() * 11);
+      for (let i = 0; i < birdCount; i++) {
+        const paired = Math.random() > 0.5;
         birds.push({
           x: rand(-W * 0.2, W * 1.2),
           y: rand(0, H),
           vx: rand(0.4, 1.2) * (Math.random() > 0.5 ? 1 : -1),
           vy: rand(-0.15, 0.15),
-          vFormation: false,
-          vIndex: 0,
-          vLeaderRef: birdId,
+          paired,
         });
-        birdId++;
       }
     }
 
@@ -141,23 +90,8 @@ export default function RainforestCanvas() {
       }
     }
 
-    function reverseSplinePath(pts: RiverCP[]) {
-      const revPts = [...pts].reverse();
-      for (let i = 0; i < revPts.length - 1; i++) {
-        const p0 = revPts[Math.max(0, i - 1)];
-        const p1 = revPts[i];
-        const p2 = revPts[i + 1];
-        const p3 = revPts[Math.min(revPts.length - 1, i + 2)];
-        const cp1x = p1.x + (p2.x - p0.x) / 6;
-        const cp1y = p1.y + (p2.y - p0.y) / 6;
-        const cp2x = p2.x - (p3.x - p1.x) / 6;
-        const cp2y = p2.y - (p3.y - p1.y) / 6;
-        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-      }
-    }
-
     function drawRiver() {
-      // Sandy/muddy banks
+      // Sandy/muddy banks — slightly wider than river
       const bankPad = 5;
       const bankTopCPs = riverTopCPs.map(p => ({ x: p.x, y: p.y - bankPad }));
       const bankBotCPs = riverBotCPs.map(p => ({ x: p.x, y: p.y + bankPad }));
@@ -165,43 +99,38 @@ export default function RainforestCanvas() {
       ctx.fillStyle = '#5a3a10';
       ctx.beginPath();
       buildSplinePath(bankTopCPs);
-      reverseSplinePath(bankBotCPs);
+      // reverse back along bottom
+      const revBot = [...bankBotCPs].reverse();
+      for (let i = 0; i < revBot.length - 1; i++) {
+        const p0 = revBot[Math.max(0, i - 1)];
+        const p1 = revBot[i];
+        const p2 = revBot[i + 1];
+        const p3 = revBot[Math.min(revBot.length - 1, i + 2)];
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+      }
       ctx.closePath(); ctx.fill();
 
-      // River water with gradient
-      const waterGrad = ctx.createLinearGradient(0, riverCenterY - riverHalfWidth, 0, riverCenterY + riverHalfWidth);
-      waterGrad.addColorStop(0, '#1a5a8a');
-      waterGrad.addColorStop(0.5, '#1d6899');
-      waterGrad.addColorStop(1, '#1a5a8a');
-      ctx.fillStyle = waterGrad;
+      // River water
+      ctx.fillStyle = '#1a5a8a';
       ctx.beginPath();
       buildSplinePath(riverTopCPs);
-      reverseSplinePath(riverBotCPs);
-      ctx.closePath(); ctx.fill();
-
-      // Draw tributary branches
-      const tributaryData = [
-        { tX: W * 0.25, tDir: -1 },
-        { tX: W * 0.55, tDir: 1 },
-        { tX: W * 0.80, tDir: -1 },
-      ];
-      for (const trib of tributaryData) {
-        const idx = Math.min(Math.floor((trib.tX / W) * (riverCPs.length - 1)), riverCPs.length - 2);
-        const localT = (trib.tX / W) * (riverCPs.length - 1) - idx;
-        const startY = riverCPs[idx].y + (riverCPs[idx + 1].y - riverCPs[idx].y) * localT;
-        ctx.strokeStyle = 'rgba(26,90,138,0.6)';
-        ctx.lineWidth = riverHalfWidth * 0.4;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(trib.tX + (trib.tDir > 0 ? riverHalfWidth : -riverHalfWidth), startY);
-        ctx.quadraticCurveTo(
-          trib.tX + trib.tDir * W * 0.08,
-          startY + H * 0.06,
-          trib.tX + trib.tDir * W * 0.12,
-          startY + H * 0.12
-        );
-        ctx.stroke();
+      const revBotW = [...riverBotCPs].reverse();
+      for (let i = 0; i < revBotW.length - 1; i++) {
+        const p0 = revBotW[Math.max(0, i - 1)];
+        const p1 = revBotW[i];
+        const p2 = revBotW[i + 1];
+        const p3 = revBotW[Math.min(revBotW.length - 1, i + 2)];
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
       }
+      ctx.closePath(); ctx.fill();
 
       // Shimmer highlights along river
       shimmerOffset = (shimmerOffset + 0.5) % (W + 60);
@@ -210,6 +139,7 @@ export default function RainforestCanvas() {
       for (let i = 0; i < 10; i++) {
         const t = ((i * 73 + shimmerOffset) % (W + 60)) / W;
         if (t < 0 || t > 1) continue;
+        // interpolate along river center
         const idx = Math.min(Math.floor(t * (riverCPs.length - 1)), riverCPs.length - 2);
         const localT = t * (riverCPs.length - 1) - idx;
         const cy = riverCPs[idx].y + (riverCPs[idx + 1].y - riverCPs[idx].y) * localT;
@@ -225,6 +155,7 @@ export default function RainforestCanvas() {
       for (const c of clusters) {
         // Shadow
         ctx.globalAlpha = 0.35;
+        ctx.fillStyle = '#000';
         const sg = ctx.createRadialGradient(c.x + c.shadowX, c.y + c.shadowY, 0, c.x + c.shadowX, c.y + c.shadowY, c.r);
         sg.addColorStop(0, 'rgba(0,0,0,0.5)');
         sg.addColorStop(1, 'transparent');
@@ -253,37 +184,15 @@ export default function RainforestCanvas() {
       // Draw dense canopy clusters
       drawClusters();
 
-      // Atmospheric haze overlay
-      const hazeG = ctx.createLinearGradient(0, 0, 0, H);
-      hazeG.addColorStop(0, 'rgba(20,60,15,0.0)');
-      hazeG.addColorStop(0.5, 'rgba(20,60,15,0.08)');
-      hazeG.addColorStop(1, 'rgba(10,30,8,0.12)');
-      ctx.fillStyle = hazeG;
-      ctx.fillRect(0, 0, W, H);
-
       // Draw river on top of canopy
       drawRiver();
 
-      // Birds
-      for (let bi = 0; bi < birds.length; bi++) {
-        const b = birds[bi];
-
-        // V-formation: offset from leader
-        if (b.vFormation && b.vIndex > 0) {
-          const leader = birds[b.vLeaderRef];
-          const side = b.vIndex % 2 === 1 ? 1 : -1;
-          const depth = Math.ceil(b.vIndex / 2);
-          const targetX = leader.x + side * depth * 10 * Math.sign(leader.vx);
-          const targetY = leader.y + depth * 8;
-          b.x = b.x + (targetX - b.x) * 0.05 + leader.vx;
-          b.y = b.y + (targetY - b.y) * 0.05 + leader.vy;
-        } else {
-          b.x += b.vx;
-          b.y += b.vy + Math.sin(b.x * 0.05) * 0.1;
-        }
-
-        if (b.x > W + 40) { b.x = -40; }
-        if (b.x < -40) { b.x = W + 40; }
+      // Birds (tiny V-shapes or dots seen from above)
+      for (const b of birds) {
+        b.x += b.vx;
+        b.y += b.vy + Math.sin(b.x * 0.05) * 0.1;
+        if (b.x > W + 40) b.x = -40;
+        if (b.x < -40) b.x = W + 40;
         if (b.y < 0) b.y = H;
         if (b.y > H) b.y = 0;
 
@@ -295,6 +204,15 @@ export default function RainforestCanvas() {
         ctx.lineTo(b.x, b.y);
         ctx.lineTo(b.x + span, b.y - span * 0.4);
         ctx.stroke();
+
+        // Paired bird offset slightly
+        if (b.paired) {
+          ctx.beginPath();
+          ctx.moveTo(b.x - span + 6, b.y + 5 - span * 0.4);
+          ctx.lineTo(b.x + 6, b.y + 5);
+          ctx.lineTo(b.x + span + 6, b.y + 5 - span * 0.4);
+          ctx.stroke();
+        }
       }
 
       raf = requestAnimationFrame(loop);

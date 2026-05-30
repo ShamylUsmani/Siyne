@@ -70,56 +70,34 @@ export default function SpaceCanvas() {
       ctx.fillStyle = oceanGrad;
       ctx.fillRect(earthX - earthR, earthY - earthR, earthR * 2, earthR * 2);
 
-      // S-shaped landmasses (like Siyne's initial)
-      ctx.fillStyle = 'rgba(45,110,40,0.88)';
-
-      // Upper part of S — large northern landmass
-      ctx.beginPath();
-      ctx.moveTo(earthX - earthR * 0.5, earthY - earthR * 0.6);
-      ctx.bezierCurveTo(
-        earthX - earthR * 0.1, earthY - earthR * 0.9,
-        earthX + earthR * 0.5, earthY - earthR * 0.7,
-        earthX + earthR * 0.4, earthY - earthR * 0.1
-      );
-      ctx.bezierCurveTo(
-        earthX + earthR * 0.35, earthY + earthR * 0.15,
-        earthX + earthR * 0.0, earthY + earthR * 0.0,
-        earthX - earthR * 0.1, earthY - earthR * 0.1
-      );
-      ctx.bezierCurveTo(
-        earthX - earthR * 0.35, earthY - earthR * 0.3,
-        earthX - earthR * 0.6, earthY - earthR * 0.3,
-        earthX - earthR * 0.5, earthY - earthR * 0.6
-      );
-      ctx.closePath(); ctx.fill();
-
-      // Lower part of S — southern landmass
-      ctx.beginPath();
-      ctx.moveTo(earthX + earthR * 0.4, earthY + earthR * 0.05);
-      ctx.bezierCurveTo(
-        earthX + earthR * 0.5, earthY + earthR * 0.3,
-        earthX + earthR * 0.2, earthY + earthR * 0.7,
-        earthX - earthR * 0.1, earthY + earthR * 0.75
-      );
-      ctx.bezierCurveTo(
-        earthX - earthR * 0.5, earthY + earthR * 0.8,
-        earthX - earthR * 0.6, earthY + earthR * 0.5,
-        earthX - earthR * 0.4, earthY + earthR * 0.3
-      );
-      ctx.bezierCurveTo(
-        earthX - earthR * 0.2, earthY + earthR * 0.1,
-        earthX + earthR * 0.1, earthY + earthR * 0.2,
-        earthX + earthR * 0.4, earthY + earthR * 0.05
-      );
-      ctx.closePath(); ctx.fill();
+      // Continents (pre-defined shapes as ellipses)
+      const continentData = [
+        // [relX, relY, relRx, relRy, rotation]
+        [-0.22, -0.18, 0.26, 0.36, -0.2],  // Americas
+        [ 0.12, -0.15, 0.20, 0.30,  0.1],  // Europe/Africa
+        [-0.02,  0.22, 0.17, 0.22,  0.0],  // Africa south
+        [ 0.35,  0.08, 0.18, 0.25,  0.3],  // Asia
+        [-0.42,  0.32, 0.14, 0.16,  0.0],  // South America tip
+        [ 0.28, -0.35, 0.12, 0.15, -0.1],  // Northern Europe
+      ];
+      ctx.fillStyle = 'rgba(55,130,45,0.92)';
+      for (const [rx, ry, rw, rh, rot] of continentData) {
+        ctx.save();
+        ctx.translate(earthX + earthR * rx, earthY + earthR * ry);
+        ctx.rotate(rot);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, earthR * rw, earthR * rh, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
 
       // Ice caps
-      ctx.fillStyle = 'rgba(240,245,255,0.75)';
-      ctx.beginPath(); ctx.ellipse(earthX, earthY - earthR * 0.88, earthR * 0.3, earthR * 0.15, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(earthX, earthY + earthR * 0.88, earthR * 0.22, earthR * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(240,245,255,0.7)';
+      ctx.beginPath(); ctx.ellipse(earthX, earthY - earthR * 0.88, earthR * 0.35, earthR * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(earthX, earthY + earthR * 0.88, earthR * 0.25, earthR * 0.14, 0, 0, Math.PI * 2); ctx.fill();
 
       // Cloud layer
-      ctx.fillStyle = 'rgba(255,255,255,0.20)';
+      ctx.fillStyle = 'rgba(255,255,255,0.22)';
       const cloudData: [number,number,number,number][] = [[-0.08,-0.42,0.42,0.08],[0.28,-0.08,0.32,0.07],[-0.38,0.18,0.28,0.08],[0.08,0.38,0.38,0.07]];
       for (const [cx,cy,cw,ch] of cloudData) {
         ctx.beginPath(); ctx.ellipse(earthX+earthR*cx, earthY+earthR*cy, earthR*cw, earthR*ch, 0, 0, Math.PI*2); ctx.fill();
