@@ -26,7 +26,11 @@ export interface Post {
   reactions?:      Record<string, 'like' | 'love' | 'laugh' | 'sad'>;
   commentCount?:   number;
   mediaUrl?:       string;
-  mediaType?:      'image' | 'gif';
+  mediaType?:      'image' | 'gif' | 'video';
+  // Poll fields:
+  poll?:           { question: string; options: { id: string; text: string }[] };
+  pollVotes?:      Record<string, string>;   // uid → optionId
+  pollVoteCounts?: Record<string, number>;   // optionId → count
 }
 
 interface Comment {
@@ -83,6 +87,9 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
   /* comment reaction picker */
   const [openCmtRxId,  setOpenCmtRxId]  = useState<string | null>(null);
   const [pickerPos,    setPickerPos]     = useState<{ bottom: number; left: number } | null>(null);
+
+  /* poll voting */
+  const [pollVoting, setPollVoting] = useState(false);
 
   /* report */
   const [showReport,  setShowReport]  = useState(false);
@@ -236,6 +243,24 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
     } finally { setSubmitting(false); }
   }
 
+  async function handlePollVote(optionId: string) {
+    if (!user || pollVoting || !post.poll) return;
+    const existingVote = post.pollVotes?.[user.uid];
+    if (existingVote === optionId) return; // already voted this option
+    setPollVoting(true);
+    try {
+      const updates: Record<string, unknown> = {
+        [`pollVotes.${user.uid}`]: optionId,
+        [`pollVoteCounts.${optionId}`]: increment(1),
+      };
+      if (existingVote) {
+        updates[`pollVoteCounts.${existingVote}`] = increment(-1);
+      }
+      await updateDoc(doc(db, 'posts', post.id), updates);
+    } catch (err) { console.error(err); }
+    setPollVoting(false);
+  }
+
   const timeAgo = post.createdAt ? formatTimeAgo(post.createdAt.seconds * 1000) : '';
 
   /* icon button style helper */
@@ -284,15 +309,77 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
         </p>
       )}
 
+      {/* poll display */}
+      {post.poll && (
+        <div className="mb-4 rounded-xl p-4" style={{ background: 'var(--sur)', border: '1px solid var(--fg5)' }}>
+          <p className="text-sm font-semibold mb-3" style={{ color: 'var(--fg1)' }}>
+            📊 {post.poll.question}
+          </p>
+          {(() => {
+            const myVote = post.pollVotes?.[user?.uid ?? ''];
+            const totalVotes = Object.values(post.pollVoteCounts ?? {}).reduce((s, n) => s + n, 0);
+            const hasVoted = !!myVote;
+            return post.poll!.options.map(opt => {
+              const votes = post.pollVoteCounts?.[opt.id] ?? 0;
+              const pct = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+              const isMyVote = myVote === opt.id;
+              return (
+                <button key={opt.id}
+                  onClick={() => !hasVoted && handlePollVote(opt.id)}
+                  disabled={pollVoting || !user}
+                  className="w-full text-left mb-2 rounded-lg overflow-hidden relative transition-all"
+                  style={{
+                    border: isMyVote ? '2px solid #B01E36' : '1px solid var(--fg5)',
+                    cursor: hasVoted ? 'default' : 'pointer',
+                  }}>
+                  {/* fill bar (shows after voting) */}
+                  {hasVoted && (
+                    <div className="absolute inset-0 rounded-lg transition-all"
+                      style={{ width: `${pct}%`, background: isMyVote ? 'rgba(176,30,54,0.18)' : 'rgba(255,255,255,0.06)' }} />
+                  )}
+                  <div className="relative flex items-center justify-between px-3 py-2">
+                    <span className="text-sm flex items-center gap-2" style={{ color: 'var(--fg1)' }}>
+                      {isMyVote && <span style={{ color: '#B01E36' }}>✓</span>}
+                      {opt.text}
+                    </span>
+                    {hasVoted && (
+                      <span className="text-xs font-semibold" style={{ color: isMyVote ? '#B01E36' : 'var(--fg3)' }}>
+                        {pct}%
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            });
+          })()}
+          <p className="text-xs mt-2" style={{ color: 'var(--fg4)' }}>
+            {Object.values(post.pollVoteCounts ?? {}).reduce((s, n) => s + n, 0)} vote{Object.values(post.pollVoteCounts ?? {}).reduce((s, n) => s + n, 0) !== 1 ? 's' : ''}
+            {post.pollVotes?.[user?.uid ?? ''] ? '' : ' · Tap an option to vote'}
+          </p>
+        </div>
+      )}
+
       {/* post media — click to enlarge */}
-      {post.mediaUrl && (
+      {post.mediaUrl && post.mediaType === 'video' ? (
+        <div className="mb-4 rounded-xl overflow-hidden cursor-pointer"
+          onClick={() => setLightboxSrc(post.mediaUrl!)}>
+          <video
+            src={post.mediaUrl}
+            controls
+            playsInline
+            preload="metadata"
+            className="w-full rounded-xl"
+            style={{ maxHeight: '520px', background: '#000' }}
+          />
+        </div>
+      ) : post.mediaUrl ? (
         <div className="mb-4 rounded-xl overflow-hidden cursor-zoom-in"
           onClick={() => post.mediaType !== 'gif' && setLightboxSrc(post.mediaUrl!)}>
           <img src={post.mediaUrl} alt=""
             className="w-full object-contain"
             style={{ maxHeight: '520px', background: 'rgba(0,0,0,0.08)' }} />
         </div>
-      )}
+      ) : null}
 
       {/* lightbox */}
       {lightboxSrc && (

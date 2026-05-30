@@ -8,7 +8,7 @@ import {
   query, orderBy, where, onSnapshot, getDocs, limit,
   serverTimestamp, setDoc, deleteDoc, updateDoc, increment,
 } from 'firebase/firestore';
-import { ref as sRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref as sRef, uploadBytes, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/Navbar';
@@ -55,10 +55,32 @@ export default function FeedPage() {
 
   /* post media */
   const [postMedia,     setPostMedia]     = useState('');
-  const [postMediaType, setPostMediaType] = useState<'image' | 'gif'>('image');
+  const [postMediaType, setPostMediaType] = useState<'image' | 'gif' | 'video'>('image');
   const [uploadingImg,  setUploadingImg]  = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
   const postImgRef = useRef<HTMLInputElement>(null);
+
+  // video upload
+  const [postVideo, setPostVideo]           = useState('');
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [videoProgress, setVideoProgress]   = useState<number | null>(null);
+  const postVideoRef = useRef<HTMLInputElement>(null);
+
+  // poll creation
+  const [showPoll, setShowPoll]             = useState(false);
+  const [pollQuestion, setPollQuestion]     = useState('');
+  const [pollOptions, setPollOptions]       = useState(['', '']);
+
+  // camera
+  const [showCamera, setShowCamera]         = useState(false);
+  const [cameraStream, setCameraStream]     = useState<MediaStream | null>(null);
+  const [cameraMode, setCameraMode]         = useState<'photo' | 'video'>('photo');
+  const [isRecording, setIsRecording]       = useState(false);
+  const [capturedMedia, setCapturedMedia]   = useState<{ url: string; type: 'photo' | 'video'; blob: Blob } | null>(null);
+  const cameraVideoRef  = useRef<HTMLVideoElement>(null);
+  const cameraCanvasRef = useRef<HTMLCanvasElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunks   = useRef<BlobPart[]>([]);
 
   /* company posts for Following tab */
   const [followedCompanyIds, setFollowedCompanyIds]   = useState<string[]>([]);
@@ -152,8 +174,89 @@ export default function FeedPage() {
     e.target.value = '';
   }
 
+  async function handlePostVideo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (file.size > 100 * 1024 * 1024) { alert('Video must be under 100MB.'); return; }
+    setUploadingVideo(true); setVideoProgress(0);
+    try {
+      const path = `posts/videos/${user.uid}/${Date.now()}_${file.name}`;
+      const vRef = sRef(storage, path);
+      const task = uploadBytesResumable(vRef, file);
+      task.on('state_changed',
+        s => setVideoProgress(Math.round(s.bytesTransferred / s.totalBytes * 100)),
+        err => { console.error(err); setUploadingVideo(false); setVideoProgress(null); },
+        async () => { setPostVideo(await getDownloadURL(task.snapshot.ref)); setUploadingVideo(false); setVideoProgress(null); }
+      );
+    } catch { setUploadingVideo(false); setVideoProgress(null); }
+    e.target.value = '';
+  }
+
+  async function openCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
+      setCameraStream(stream);
+      setShowCamera(true);
+      setCapturedMedia(null);
+      setTimeout(() => {
+        if (cameraVideoRef.current) { cameraVideoRef.current.srcObject = stream; cameraVideoRef.current.play(); }
+      }, 100);
+    } catch {
+      alert('Camera not available. Please allow camera access.');
+    }
+  }
+
+  function closeCamera() {
+    cameraStream?.getTracks().forEach(t => t.stop());
+    setCameraStream(null); setShowCamera(false); setCapturedMedia(null); setIsRecording(false);
+  }
+
+  function capturePhoto() {
+    const video = cameraVideoRef.current; const canvas = cameraCanvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d')!.drawImage(video, 0, 0);
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      setCapturedMedia({ url: URL.createObjectURL(blob), type: 'photo', blob });
+    }, 'image/jpeg', 0.92);
+  }
+
+  function startRecording() {
+    if (!cameraStream) return;
+    recordedChunks.current = [];
+    const mr = new MediaRecorder(cameraStream, { mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm' });
+    mr.ondataavailable = e => { if (e.data.size > 0) recordedChunks.current.push(e.data); };
+    mr.onstop = () => {
+      const blob = new Blob(recordedChunks.current, { type: 'video/webm' });
+      setCapturedMedia({ url: URL.createObjectURL(blob), type: 'video', blob });
+    };
+    mediaRecorderRef.current = mr; mr.start(); setIsRecording(true);
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop(); setIsRecording(false);
+  }
+
+  async function useCapturedMedia() {
+    if (!capturedMedia || !user) return;
+    closeCamera();
+    const ext = capturedMedia.type === 'photo' ? 'jpg' : 'webm';
+    const mimeType = capturedMedia.type === 'photo' ? 'image/jpeg' : 'video/webm';
+    const path = `posts/${capturedMedia.type === 'photo' ? 'images' : 'videos'}/${user.uid}/${Date.now()}.${ext}`;
+    try {
+      const snap = await uploadBytes(sRef(storage, path), capturedMedia.blob, { contentType: mimeType });
+      const url = await getDownloadURL(snap.ref);
+      if (capturedMedia.type === 'photo') {
+        setPostMedia(url); setPostMediaType('image');
+      } else {
+        setPostVideo(url);
+      }
+    } catch (err) { console.error(err); alert('Upload failed.'); }
+  }
+
   async function handlePost() {
-    if (!user || (!content.trim() && !postMedia)) return;
+    if (!user || (!content.trim() && !postMedia && !postVideo && !(showPoll && pollQuestion.trim()))) return;
     setPosting(true);
     try {
       const payload: Record<string, unknown> = {
@@ -161,10 +264,22 @@ export default function FeedPage() {
         authorTitle: jobTitle, authorPhotoURL: myPhotoURL,
         content: content.trim(), likes: 0, likedBy: [], createdAt: serverTimestamp(),
       };
-      if (postMedia) { payload.mediaUrl = postMedia; payload.mediaType = postMediaType; }
+      if (postMedia)  { payload.mediaUrl = postMedia;  payload.mediaType = postMediaType; }
+      if (postVideo)  { payload.mediaUrl = postVideo;  payload.mediaType = 'video'; }
+      if (showPoll && pollQuestion.trim()) {
+        const validOptions = pollOptions.filter(o => o.trim());
+        if (validOptions.length >= 2) {
+          payload.poll = {
+            question: pollQuestion.trim(),
+            options: validOptions.map((text, i) => ({ id: `opt_${i}`, text: text.trim() })),
+          };
+          payload.pollVotes = {};
+          payload.pollVoteCounts = {};
+        }
+      }
       await addDoc(collection(db, 'posts'), payload);
-      setContent('');
-      setPostMedia('');
+      setContent(''); setPostMedia(''); setPostVideo('');
+      setShowPoll(false); setPollQuestion(''); setPollOptions(['', '']);
     } finally { setPosting(false); }
   }
 
@@ -246,11 +361,15 @@ export default function FeedPage() {
                     className="input-field resize-none text-sm" />
 
                   {/* media preview */}
-                  {postMedia && (
+                  {(postMedia || postVideo) && (
                     <div className="relative mt-2 inline-block max-w-full">
-                      <img src={postMedia} alt="" className="rounded-xl max-h-48 object-cover" />
+                      {postVideo ? (
+                        <video src={postVideo} className="rounded-xl max-h-48" controls playsInline />
+                      ) : (
+                        <img src={postMedia} alt="" className="rounded-xl max-h-48 object-cover" />
+                      )}
                       <button
-                        onClick={() => setPostMedia('')}
+                        onClick={() => { setPostMedia(''); setPostVideo(''); }}
                         className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
                         style={{ background: '#B01E36', color: 'white' }}>
                         ×
@@ -258,33 +377,100 @@ export default function FeedPage() {
                     </div>
                   )}
 
+                  {/* video upload progress */}
+                  {videoProgress !== null && (
+                    <div className="mt-2 rounded-full overflow-hidden h-1.5" style={{ background: 'var(--fg5)' }}>
+                      <div className="h-full transition-all" style={{ width: `${videoProgress}%`, background: 'linear-gradient(90deg,#B01E36,#D63A52)' }} />
+                    </div>
+                  )}
+
+                  {/* poll creation form */}
+                  {showPoll && (
+                    <div className="mt-3 p-3 rounded-xl space-y-2" style={{ background: 'var(--sur)', border: '1px solid var(--fg5)' }}>
+                      <input
+                        value={pollQuestion}
+                        onChange={e => setPollQuestion(e.target.value)}
+                        placeholder="Ask a question…"
+                        className="input-field text-sm"
+                      />
+                      {pollOptions.map((opt, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <input
+                            value={opt}
+                            onChange={e => {
+                              const next = [...pollOptions];
+                              next[i] = e.target.value;
+                              setPollOptions(next);
+                            }}
+                            placeholder={`Option ${i + 1}`}
+                            className="input-field text-sm flex-1"
+                          />
+                          {pollOptions.length > 2 && (
+                            <button onClick={() => setPollOptions(prev => prev.filter((_, j) => j !== i))}
+                              className="text-xs" style={{ color: 'var(--fg4)' }}>✕</button>
+                          )}
+                        </div>
+                      ))}
+                      {pollOptions.length < 4 && (
+                        <button onClick={() => setPollOptions(prev => [...prev, ''])}
+                          className="text-xs" style={{ color: '#B01E36' }}>
+                          + Add option
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between mt-3">
                     {/* media buttons */}
-                    <div className="flex items-center gap-1">
-                      {/* image upload */}
-                      <button
-                        onClick={() => postImgRef.current?.click()}
-                        disabled={uploadingImg}
-                        title="Add image"
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {/* Photo */}
+                      <button onClick={() => postImgRef.current?.click()} disabled={uploadingImg || !!postVideo}
+                        title="Add photo"
                         className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors"
                         style={{ color: 'var(--fg3)', border: '1px solid var(--fg5)' }}
                         onMouseEnter={e => (e.currentTarget.style.color = 'white')}
                         onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg3)')}>
-                        {uploadingImg ? (
-                          <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                        )}
+                        {uploadingImg
+                          ? <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
+                          : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>}
                         Photo
                       </button>
                       <input ref={postImgRef} type="file" accept="image/*" className="hidden" onChange={handlePostImage} />
 
-                      {/* GIF picker */}
-                      <button
-                        onClick={() => setShowGifPicker(true)}
+                      {/* Video */}
+                      <button onClick={() => postVideoRef.current?.click()} disabled={uploadingVideo || !!postMedia}
+                        title="Add video"
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+                        style={{ color: 'var(--fg3)', border: '1px solid var(--fg5)' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = 'white')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg3)')}>
+                        {uploadingVideo
+                          ? <span className="text-[10px]">{videoProgress}%</span>
+                          : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.693v6.614a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>}
+                        Video
+                      </button>
+                      <input ref={postVideoRef} type="file" accept="video/mp4,video/webm,video/quicktime,video/mov" className="hidden" onChange={handlePostVideo} />
+
+                      {/* Camera */}
+                      <button onClick={openCamera}
+                        title="Use camera"
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+                        style={{ color: 'var(--fg3)', border: '1px solid var(--fg5)' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = 'white')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg3)')}>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Camera
+                      </button>
+
+                      {/* GIF */}
+                      <button onClick={() => setShowGifPicker(true)}
                         title="Add GIF"
                         className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors font-bold"
                         style={{ color: 'var(--fg3)', border: '1px solid var(--fg5)' }}
@@ -292,11 +478,28 @@ export default function FeedPage() {
                         onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg3)')}>
                         GIF
                       </button>
+
+                      {/* Poll */}
+                      <button onClick={() => setShowPoll(v => !v)}
+                        title="Create poll"
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+                        style={{
+                          color: showPoll ? '#B01E36' : 'var(--fg3)',
+                          border: showPoll ? '1px solid #B01E36' : '1px solid var(--fg5)',
+                          background: showPoll ? 'rgba(176,30,54,0.08)' : 'transparent',
+                        }}
+                        onMouseEnter={e => { if (!showPoll) e.currentTarget.style.color = 'white'; }}
+                        onMouseLeave={e => { if (!showPoll) e.currentTarget.style.color = 'var(--fg3)'; }}>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        Poll
+                      </button>
                     </div>
 
                     <div className="flex items-center gap-3">
                       <span className="text-xs hidden sm:block" style={{ color: 'var(--fg4)' }}>Ctrl+Enter</span>
-                      <button onClick={handlePost} disabled={posting || (!content.trim() && !postMedia)} className="btn-primary text-sm py-2 px-5">
+                      <button onClick={handlePost} disabled={posting || (!content.trim() && !postMedia && !postVideo && !(showPoll && pollQuestion.trim()))} className="btn-primary text-sm py-2 px-5">
                         {posting ? 'Posting…' : 'Post'}
                       </button>
                     </div>
@@ -448,6 +651,78 @@ export default function FeedPage() {
 
         </div>
       </main>
+
+      {/* Camera modal */}
+      {showCamera && (
+        <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: '#000' }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
+            <button onClick={closeCamera} className="text-white/70 hover:text-white text-sm">Cancel</button>
+            {/* Mode toggle */}
+            <div className="flex rounded-lg overflow-hidden" style={{ background: 'rgba(255,255,255,0.15)' }}>
+              {(['photo', 'video'] as const).map(m => (
+                <button key={m} onClick={() => { setCameraMode(m); if (isRecording) stopRecording(); }}
+                  className="px-4 py-1.5 text-sm font-medium transition-colors"
+                  style={{ background: cameraMode === m ? 'rgba(255,255,255,0.25)' : 'transparent', color: 'white' }}>
+                  {m === 'photo' ? '📷 Photo' : '🎬 Video'}
+                </button>
+              ))}
+            </div>
+            <div className="w-16" />
+          </div>
+
+          {/* Camera preview or captured preview */}
+          <div className="flex-1 relative overflow-hidden flex items-center justify-center">
+            {capturedMedia ? (
+              capturedMedia.type === 'photo'
+                ? <img src={capturedMedia.url} alt="captured" className="max-w-full max-h-full object-contain" />
+                : <video src={capturedMedia.url} controls playsInline className="max-w-full max-h-full" />
+            ) : (
+              <video ref={cameraVideoRef} playsInline muted autoPlay className="max-w-full max-h-full" />
+            )}
+            {isRecording && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1 rounded-full"
+                style={{ background: 'rgba(176,30,54,0.85)' }}>
+                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <span className="text-white text-xs font-semibold">Recording</span>
+              </div>
+            )}
+          </div>
+
+          {/* Hidden canvas for photo capture */}
+          <canvas ref={cameraCanvasRef} className="hidden" />
+
+          {/* Controls */}
+          <div className="flex items-center justify-center gap-8 px-8 py-6 flex-shrink-0">
+            {capturedMedia ? (
+              <>
+                <button onClick={() => setCapturedMedia(null)}
+                  className="px-6 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: 'rgba(255,255,255,0.15)', color: 'white' }}>
+                  Retake
+                </button>
+                <button onClick={useCapturedMedia}
+                  className="px-8 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
+                  Use this
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={cameraMode === 'photo' ? capturePhoto : isRecording ? stopRecording : startRecording}
+                className="w-16 h-16 rounded-full flex items-center justify-center transition-transform active:scale-95"
+                style={{
+                  background: isRecording ? '#B01E36' : 'white',
+                  border: '3px solid rgba(255,255,255,0.5)',
+                }}>
+                {cameraMode === 'video' && isRecording
+                  ? <div className="w-5 h-5 rounded-sm" style={{ background: 'white' }} />
+                  : <div className="w-10 h-10 rounded-full" style={{ background: isRecording ? 'white' : '#1a0a0a' }} />}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
