@@ -53,56 +53,73 @@ export default function SpaceCanvas() {
     }
 
     function drawEarth() {
-      // Atmosphere glow
-      const atmo = ctx.createRadialGradient(earthX, earthY, earthR * 0.9, earthX, earthY, earthR * 1.18);
-      atmo.addColorStop(0, 'rgba(80,140,255,0.18)');
-      atmo.addColorStop(1, 'transparent');
-      ctx.fillStyle = atmo;
-      ctx.beginPath(); ctx.arc(earthX, earthY, earthR * 1.18, 0, Math.PI * 2); ctx.fill();
+      ctx.save();
+      // Clip to circle first
+      ctx.beginPath();
+      ctx.arc(earthX, earthY, earthR, 0, Math.PI * 2);
+      ctx.clip();
 
       // Ocean base
-      const ocean = ctx.createRadialGradient(earthX - earthR * 0.2, earthY - earthR * 0.2, 0, earthX, earthY, earthR);
-      ocean.addColorStop(0, '#2060c0');
-      ocean.addColorStop(0.5, '#1848a0');
-      ocean.addColorStop(1, '#102878');
-      ctx.fillStyle = ocean;
-      ctx.beginPath(); ctx.arc(earthX, earthY, earthR, 0, Math.PI * 2); ctx.fill();
+      const oceanGrad = ctx.createRadialGradient(
+        earthX - earthR * 0.3, earthY - earthR * 0.3, 0,
+        earthX, earthY, earthR
+      );
+      oceanGrad.addColorStop(0,   '#2870d0');
+      oceanGrad.addColorStop(0.6, '#1a50a8');
+      oceanGrad.addColorStop(1,   '#0e2d70');
+      ctx.fillStyle = oceanGrad;
+      ctx.fillRect(earthX - earthR, earthY - earthR, earthR * 2, earthR * 2);
 
-      // Continent blobs
-      ctx.fillStyle = 'rgba(50,120,40,0.85)';
-      const continents = [
-        { x: -0.25, y: -0.15, rx: 0.28, ry: 0.38 },
-        { x: 0.1, y: -0.2, rx: 0.22, ry: 0.32 },
-        { x: -0.05, y: 0.25, rx: 0.18, ry: 0.25 },
-        { x: 0.35, y: 0.1, rx: 0.15, ry: 0.2 },
-        { x: -0.42, y: 0.35, rx: 0.12, ry: 0.18 },
+      // Continents (pre-defined shapes as ellipses)
+      const continentData = [
+        // [relX, relY, relRx, relRy, rotation]
+        [-0.22, -0.18, 0.26, 0.36, -0.2],  // Americas
+        [ 0.12, -0.15, 0.20, 0.30,  0.1],  // Europe/Africa
+        [-0.02,  0.22, 0.17, 0.22,  0.0],  // Africa south
+        [ 0.35,  0.08, 0.18, 0.25,  0.3],  // Asia
+        [-0.42,  0.32, 0.14, 0.16,  0.0],  // South America tip
+        [ 0.28, -0.35, 0.12, 0.15, -0.1],  // Northern Europe
       ];
-      for (const c of continents) {
+      ctx.fillStyle = 'rgba(55,130,45,0.92)';
+      for (const [rx, ry, rw, rh, rot] of continentData) {
+        ctx.save();
+        ctx.translate(earthX + earthR * rx, earthY + earthR * ry);
+        ctx.rotate(rot);
         ctx.beginPath();
-        ctx.ellipse(earthX + earthR * c.x, earthY + earthR * c.y, earthR * c.rx, earthR * c.ry, rand(-0.3, 0.3), 0, Math.PI * 2);
+        ctx.ellipse(0, 0, earthR * rw, earthR * rh, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
       }
 
-      // Cloud wisps
+      // Ice caps
+      ctx.fillStyle = 'rgba(240,245,255,0.7)';
+      ctx.beginPath(); ctx.ellipse(earthX, earthY - earthR * 0.88, earthR * 0.35, earthR * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(earthX, earthY + earthR * 0.88, earthR * 0.25, earthR * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+
+      // Cloud layer
       ctx.fillStyle = 'rgba(255,255,255,0.22)';
-      const clouds = [[-0.1,-0.45,0.45,0.08],[ 0.3,-0.1,0.35,0.06],[-0.4,0.15,0.3,0.07],[0.1,0.4,0.4,0.06]];
-      for (const [cx,cy,cw,ch] of clouds) {
-        ctx.beginPath(); ctx.ellipse(earthX+earthR*cx, earthY+earthR*cy, earthR*cw, earthR*ch, rand(-0.2,0.2), 0, Math.PI*2); ctx.fill();
+      const cloudData: [number,number,number,number][] = [[-0.08,-0.42,0.42,0.08],[0.28,-0.08,0.32,0.07],[-0.38,0.18,0.28,0.08],[0.08,0.38,0.38,0.07]];
+      for (const [cx,cy,cw,ch] of cloudData) {
+        ctx.beginPath(); ctx.ellipse(earthX+earthR*cx, earthY+earthR*cy, earthR*cw, earthR*ch, 0, 0, Math.PI*2); ctx.fill();
       }
 
-      // Clip to circle
-      ctx.globalCompositeOperation = 'destination-in';
-      ctx.beginPath(); ctx.arc(earthX, earthY, earthR, 0, Math.PI * 2); ctx.fill();
-      ctx.globalCompositeOperation = 'source-over';
+      // Night-side terminator (dark half on right side)
+      const terminator = ctx.createLinearGradient(earthX, earthY - earthR, earthX + earthR * 1.2, earthY + earthR);
+      terminator.addColorStop(0,    'transparent');
+      terminator.addColorStop(0.55, 'rgba(0,5,25,0.25)');
+      terminator.addColorStop(1,    'rgba(0,5,25,0.78)');
+      ctx.fillStyle = terminator;
+      ctx.fillRect(earthX - earthR, earthY - earthR, earthR * 2, earthR * 2);
 
-      // Night-side shadow
-      const shadow = ctx.createRadialGradient(earthX + earthR * 0.45, earthY, 0, earthX + earthR * 0.45, earthY, earthR * 1.1);
-      shadow.addColorStop(0, 'transparent');
-      shadow.addColorStop(0.55, 'rgba(0,5,20,0.35)');
-      shadow.addColorStop(1, 'rgba(0,5,20,0.88)');
-      ctx.save(); ctx.beginPath(); ctx.arc(earthX, earthY, earthR, 0, Math.PI * 2); ctx.clip();
-      ctx.fillStyle = shadow; ctx.fillRect(earthX - earthR, earthY - earthR, earthR * 2, earthR * 2);
       ctx.restore();
+
+      // Atmosphere glow (OUTSIDE clip)
+      const atmoGlow = ctx.createRadialGradient(earthX, earthY, earthR * 0.92, earthX, earthY, earthR * 1.22);
+      atmoGlow.addColorStop(0,   'rgba(80,150,255,0.20)');
+      atmoGlow.addColorStop(0.5, 'rgba(50,120,220,0.10)');
+      atmoGlow.addColorStop(1,   'transparent');
+      ctx.fillStyle = atmoGlow;
+      ctx.beginPath(); ctx.arc(earthX, earthY, earthR * 1.22, 0, Math.PI * 2); ctx.fill();
     }
 
     function drawSatellite(s: Satellite) {

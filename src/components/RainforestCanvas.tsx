@@ -1,241 +1,217 @@
 'use client';
 import { useEffect, useRef } from 'react';
 
-interface Drop   { x: number; y: number; spd: number; len: number; op: number; }
-interface Fly    { x: number; y: number; vx: number; vy: number; phase: number; }
-interface Leaf   { x: number; y: number; vx: number; vy: number; rot: number; rs: number; sz: number; col: string; }
-interface Bird   { x: number; y: number; spd: number; flap: number; group: number; lane: number; }
-interface Ripple { x: number; y: number; r: number; maxR: number; op: number; }
-interface Trunk  { x: number; tw: number; th: number; }
-interface Canopy { x: number; y: number; r: number; col: string; }
-
 function rand(a: number, b: number) { return a + Math.random() * (b - a); }
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 
-const GREENS = ['#2db02d','#25a025','#1d8c1d','#15781a','#0d641a','#228b22','#32cd32','#3cb371'];
-const DARK_GREENS = ['#0a4010','#0c5015','#0e601a','#104010','#082808'];
+interface TreeCluster { x: number; y: number; r: number; col: string; shadowX: number; shadowY: number; bright: boolean; }
+interface Bird { x: number; y: number; vx: number; vy: number; paired: boolean; }
+interface RiverCP { x: number; y: number; }
+
+const CANOPY_COLS = ['#2a8c18','#1e7010','#268c1a','#32a020','#1a6010','#3ab828','#128808','#20780e'];
 
 export default function RainforestCanvas() {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current; if (!canvas) return;
     const ctx = canvas.getContext('2d')!;
-    let W = 0, H = 0, riverY = 0, riverH = 0;
-    let raf = 0, frame = 0;
-    const drops: Drop[] = []; const flies: Fly[] = []; const leaves: Leaf[] = [];
-    const birds: Bird[] = []; const ripples: Ripple[] = [];
-    const trunks: Trunk[] = []; const canopy: Canopy[] = []; const fgLeaves: Canopy[] = [];
+    let W = 0, H = 0, raf = 0;
+    const clusters: TreeCluster[] = [];
+    const birds: Bird[] = [];
+    let riverCPs: RiverCP[] = [];
+    let riverTopCPs: RiverCP[] = [];
+    let riverBotCPs: RiverCP[] = [];
     let shimmerOffset = 0;
+    let riverCenterY = 0;
+    let riverHalfWidth = 0;
 
     function init() {
       if (!canvas) return;
       W = canvas.offsetWidth || 1200; H = canvas.offsetHeight || 700;
       canvas.width = W; canvas.height = H;
-      riverY = H * 0.45; riverH = H * 0.14;
-      drops.length = 0; flies.length = 0; leaves.length = 0;
-      birds.length = 0; ripples.length = 0; trunks.length = 0;
-      canopy.length = 0; fgLeaves.length = 0;
+      clusters.length = 0; birds.length = 0;
+      riverCenterY = H * 0.5;
+      riverHalfWidth = W * 0.065; // ~13% total width
 
-      // Rain (light drizzle)
-      for (let i = 0; i < 80; i++) drops.push({
-        x: rand(0, W), y: rand(0, H), spd: rand(4, 8), len: rand(8, 18), op: rand(0.08, 0.22),
-      });
-
-      // Fireflies
-      for (let i = 0; i < 30; i++) flies.push({
-        x: rand(0, W), y: rand(riverY + riverH, H),
-        vx: rand(-0.2, 0.2), vy: rand(-0.1, 0.1), phase: rand(0, Math.PI * 2),
-      });
-
-      // Leaves
-      for (let i = 0; i < 22; i++) leaves.push({
-        x: rand(0, W), y: rand(-60, H), vx: rand(-0.5, 0.2), vy: rand(0.6, 1.4),
-        rot: rand(0, Math.PI * 2), rs: rand(-0.03, 0.03),
-        sz: rand(4, 14), col: pick(GREENS),
-      });
-
-      // Birds (groups of 2-4)
-      for (let g = 0; g < 4; g++) {
-        const lane = rand(riverY * 0.1, riverY * 0.85);
-        const spd = rand(1.2, 2.5);
-        const count = Math.floor(rand(2, 5));
-        for (let i = 0; i < count; i++) {
-          birds.push({ x: -rand(0, 300) - i * rand(20, 50), y: lane + rand(-15, 15), spd, flap: rand(0, Math.PI * 2), group: g, lane });
-        }
+      // Pre-generate 90-110 tree clusters scattered across full canvas
+      const count = 90 + Math.floor(Math.random() * 21);
+      for (let i = 0; i < count; i++) {
+        clusters.push({
+          x: rand(-30, W + 30),
+          y: rand(-30, H + 30),
+          r: rand(20, 60),
+          col: pick(CANOPY_COLS),
+          shadowX: rand(2, 4),
+          shadowY: rand(2, 4),
+          bright: Math.random() > 0.45,
+        });
       }
 
-      // Tree trunks
-      let tx = rand(10, 40);
-      while (tx < W) {
-        trunks.push({ x: tx, tw: rand(12, 32), th: rand(H * 0.3, H * 0.65) });
-        tx += rand(60, 180);
+      // Pre-generate river control points (winding left→right)
+      const segments = 6;
+      riverCPs = [];
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const x = W * t;
+        const y = riverCenterY + Math.sin(t * Math.PI * 2.5) * H * 0.12 + Math.sin(t * Math.PI * 1.3 + 1) * H * 0.06;
+        riverCPs.push({ x, y });
       }
 
-      // Mid canopy blobs
-      for (let x = -40; x < W + 40; x += rand(30, 65)) {
-        const y = rand(riverY * 0.05, riverY * 0.55);
-        canopy.push({ x, y, r: rand(40, 95), col: pick(GREENS) });
-      }
+      // Top & bottom banks for the river path (offset from center)
+      riverTopCPs = riverCPs.map(p => ({ x: p.x, y: p.y - riverHalfWidth }));
+      riverBotCPs = riverCPs.map(p => ({ x: p.x, y: p.y + riverHalfWidth }));
 
-      // Foreground leaf clusters (bottom)
-      for (let i = 0; i < 35; i++) {
-        fgLeaves.push({
-          x: rand(-20, W + 20), y: rand(riverY + riverH + 10, H + 20),
-          r: rand(20, 70), col: pick([...GREENS, ...GREENS, ...DARK_GREENS]),
+      // Pre-generate birds (15-25)
+      const birdCount = 15 + Math.floor(Math.random() * 11);
+      for (let i = 0; i < birdCount; i++) {
+        const paired = Math.random() > 0.5;
+        birds.push({
+          x: rand(-W * 0.2, W * 1.2),
+          y: rand(0, H),
+          vx: rand(0.4, 1.2) * (Math.random() > 0.5 ? 1 : -1),
+          vy: rand(-0.15, 0.15),
+          paired,
         });
       }
     }
 
-    function drawBg() {
-      // Sky / canopy gradient
-      const sky = ctx.createLinearGradient(0, 0, 0, H);
-      sky.addColorStop(0,    '#061a08');
-      sky.addColorStop(0.35, '#0d3010');
-      sky.addColorStop(riverY / H, '#0a2808');
-      sky.addColorStop((riverY + riverH) / H, '#082010');
-      sky.addColorStop(1, '#040e05');
-      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
-
-      // Canopy blobs (mid-layer)
-      for (const c of canopy) {
-        ctx.globalAlpha = 0.88;
-        const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
-        g.addColorStop(0, c.col); g.addColorStop(1, 'transparent');
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-
-      // River
-      ctx.fillStyle = '#1a6040';
-      ctx.fillRect(0, riverY, W, riverH);
-
-      // River shimmer streaks
-      shimmerOffset = (shimmerOffset + 0.4) % W;
-      for (let i = 0; i < 18; i++) {
-        const lx = ((i * 67 + shimmerOffset) % (W + 60)) - 30;
-        const ly = riverY + riverH * rand(0.15, 0.85);
-        const len = rand(30, 100);
-        ctx.strokeStyle = `rgba(60,180,120,0.18)`;
-        ctx.lineWidth = rand(1, 2.5);
-        ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + len, ly); ctx.stroke();
-      }
-
-      // River shore (irregular green edges)
-      ctx.fillStyle = '#0c3818';
-      ctx.beginPath(); ctx.moveTo(0, riverY);
-      for (let x = 0; x <= W; x += 40) {
-        ctx.lineTo(x, riverY - rand(0, 12));
-      }
-      ctx.lineTo(W, riverY); ctx.lineTo(0, riverY); ctx.closePath(); ctx.fill();
-
-      ctx.beginPath(); ctx.moveTo(0, riverY + riverH);
-      for (let x = 0; x <= W; x += 40) {
-        ctx.lineTo(x, riverY + riverH + rand(0, 12));
-      }
-      ctx.lineTo(W, riverY + riverH); ctx.closePath(); ctx.fill();
-
-      // River ambient glow
-      const rg = ctx.createLinearGradient(0, riverY, 0, riverY + riverH);
-      rg.addColorStop(0, 'rgba(20,120,70,0.25)');
-      rg.addColorStop(0.5, 'rgba(30,140,80,0.15)');
-      rg.addColorStop(1, 'rgba(20,120,70,0.25)');
-      ctx.fillStyle = rg; ctx.fillRect(0, riverY, W, riverH);
-
-      // Tree trunks
-      for (const t of trunks) {
-        const g = ctx.createLinearGradient(t.x - t.tw / 2, 0, t.x + t.tw / 2, 0);
-        g.addColorStop(0, '#050f05'); g.addColorStop(0.5, '#0a1e08'); g.addColorStop(1, '#050f05');
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.roundRect(t.x - t.tw / 2, H - t.th, t.tw, t.th, [2, 2, 0, 0]); ctx.fill();
-      }
-
-      // Foreground leaf clusters
-      for (const f of fgLeaves) {
-        ctx.globalAlpha = 0.9;
-        const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r);
-        g.addColorStop(0, f.col); g.addColorStop(0.7, f.col + 'aa'); g.addColorStop(1, 'transparent');
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-
-      // Ground mist near river
-      for (let side = 0; side < 2; side++) {
-        const my = side === 0 ? riverY : riverY + riverH;
-        const mg = ctx.createLinearGradient(0, my - 20, 0, my + 30);
-        mg.addColorStop(0, 'transparent');
-        mg.addColorStop(0.5, 'rgba(40,100,50,0.18)');
-        mg.addColorStop(1, 'transparent');
-        ctx.fillStyle = mg; ctx.fillRect(0, my - 20, W, 50);
+    function buildSplinePath(pts: RiverCP[]) {
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[Math.max(0, i - 1)];
+        const p1 = pts[i];
+        const p2 = pts[i + 1];
+        const p3 = pts[Math.min(pts.length - 1, i + 2)];
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
       }
     }
 
-    function loop() {
-      frame++;
-      drawBg();
+    function drawRiver() {
+      // Sandy/muddy banks — slightly wider than river
+      const bankPad = 5;
+      const bankTopCPs = riverTopCPs.map(p => ({ x: p.x, y: p.y - bankPad }));
+      const bankBotCPs = riverBotCPs.map(p => ({ x: p.x, y: p.y + bankPad }));
 
-      // Ripple spawn
-      if (frame % 45 === 0) {
-        ripples.push({ x: rand(0, W), y: rand(riverY + 4, riverY + riverH - 4), r: 0, maxR: rand(8, 20), op: 0.5 });
+      ctx.fillStyle = '#5a3a10';
+      ctx.beginPath();
+      buildSplinePath(bankTopCPs);
+      // reverse back along bottom
+      const revBot = [...bankBotCPs].reverse();
+      for (let i = 0; i < revBot.length - 1; i++) {
+        const p0 = revBot[Math.max(0, i - 1)];
+        const p1 = revBot[i];
+        const p2 = revBot[i + 1];
+        const p3 = revBot[Math.min(revBot.length - 1, i + 2)];
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
       }
-      for (let i = ripples.length - 1; i >= 0; i--) {
-        const rp = ripples[i];
-        rp.r += 0.3; rp.op -= 0.008;
-        if (rp.op <= 0) { ripples.splice(i, 1); continue; }
-        ctx.strokeStyle = `rgba(80,200,130,${rp.op})`;
-        ctx.lineWidth = 0.8;
-        ctx.beginPath(); ctx.ellipse(rp.x, rp.y, rp.r, rp.r * 0.35, 0, 0, Math.PI * 2); ctx.stroke();
-      }
+      ctx.closePath(); ctx.fill();
 
-      // Rain
-      ctx.lineWidth = 0.6;
-      for (const d of drops) {
-        d.x -= d.spd * 0.12; d.y += d.spd;
-        if (d.y > H + 15) { d.y = -15; d.x = rand(0, W); }
-        if (d.x < -10) { d.x = W + 10; d.y = rand(0, H); }
-        ctx.strokeStyle = `rgba(100,200,140,${d.op})`;
-        ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.len * 0.12, d.y + d.len); ctx.stroke();
+      // River water
+      ctx.fillStyle = '#1a5a8a';
+      ctx.beginPath();
+      buildSplinePath(riverTopCPs);
+      const revBotW = [...riverBotCPs].reverse();
+      for (let i = 0; i < revBotW.length - 1; i++) {
+        const p0 = revBotW[Math.max(0, i - 1)];
+        const p1 = revBotW[i];
+        const p2 = revBotW[i + 1];
+        const p3 = revBotW[Math.min(revBotW.length - 1, i + 2)];
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
       }
+      ctx.closePath(); ctx.fill();
 
-      // Birds — V-shape silhouettes
-      for (const b of birds) {
-        b.x += b.spd; b.flap += 0.12;
-        if (b.x > W + 60) { b.x = -rand(20, 120); b.y = b.lane + rand(-20, 20); }
-        const flapY = Math.sin(b.flap) * 3;
-        const s = 7;
-        ctx.strokeStyle = 'rgba(4,12,4,0.88)';
-        ctx.lineWidth = 1.5;
+      // Shimmer highlights along river
+      shimmerOffset = (shimmerOffset + 0.5) % (W + 60);
+      ctx.strokeStyle = 'rgba(80,160,200,0.4)';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 10; i++) {
+        const t = ((i * 73 + shimmerOffset) % (W + 60)) / W;
+        if (t < 0 || t > 1) continue;
+        // interpolate along river center
+        const idx = Math.min(Math.floor(t * (riverCPs.length - 1)), riverCPs.length - 2);
+        const localT = t * (riverCPs.length - 1) - idx;
+        const cy = riverCPs[idx].y + (riverCPs[idx + 1].y - riverCPs[idx].y) * localT;
+        const cx2 = W * t;
         ctx.beginPath();
-        ctx.moveTo(b.x - s, b.y - flapY);
-        ctx.lineTo(b.x, b.y);
-        ctx.lineTo(b.x + s, b.y - flapY);
+        ctx.moveTo(cx2 - 20, cy - riverHalfWidth * 0.3);
+        ctx.lineTo(cx2 + 20, cy + riverHalfWidth * 0.3);
         ctx.stroke();
       }
+    }
 
-      // Leaves
-      for (const l of leaves) {
-        l.x += l.vx; l.y += l.vy; l.rot += l.rs;
-        if (l.y > H + 30) { l.y = -30; l.x = rand(0, W); }
-        ctx.save(); ctx.translate(l.x, l.y); ctx.rotate(l.rot);
-        ctx.globalAlpha = 0.7;
-        ctx.fillStyle = l.col;
-        ctx.beginPath(); ctx.ellipse(0, 0, l.sz, l.sz * 0.4, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
+    function drawClusters() {
+      for (const c of clusters) {
+        // Shadow
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = '#000';
+        const sg = ctx.createRadialGradient(c.x + c.shadowX, c.y + c.shadowY, 0, c.x + c.shadowX, c.y + c.shadowY, c.r);
+        sg.addColorStop(0, 'rgba(0,0,0,0.5)');
+        sg.addColorStop(1, 'transparent');
+        ctx.fillStyle = sg;
+        ctx.beginPath(); ctx.arc(c.x + c.shadowX, c.y + c.shadowY, c.r, 0, Math.PI * 2); ctx.fill();
+
+        // Canopy with radial gradient
+        ctx.globalAlpha = 0.92;
+        const brightCenter = c.bright ? c.col : '#0e5008';
+        const darkEdge = c.bright ? '#0e5008' : '#082008';
+        const g = ctx.createRadialGradient(c.x - c.r * 0.2, c.y - c.r * 0.2, 0, c.x, c.y, c.r);
+        g.addColorStop(0, brightCenter);
+        g.addColorStop(0.65, c.col);
+        g.addColorStop(1, darkEdge);
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill();
       }
       ctx.globalAlpha = 1;
+    }
 
-      // Fireflies
-      for (const f of flies) {
-        f.phase += 0.04; f.vx += rand(-0.01, 0.01); f.vy += rand(-0.006, 0.006);
-        f.vx *= 0.99; f.vy *= 0.99; f.x += f.vx; f.y += f.vy;
-        if (f.x < 0) f.x = W; if (f.x > W) f.x = 0;
-        if (f.y < riverY + riverH) f.vy += 0.01; if (f.y > H - 20) f.vy -= 0.01;
-        const b = (Math.sin(f.phase) * 0.5 + 0.5);
-        if (b > 0.2) {
-          const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, 9);
-          g.addColorStop(0, `rgba(200,255,100,${b * 0.9})`);
-          g.addColorStop(0.5, `rgba(100,210,50,${b * 0.35})`);
-          g.addColorStop(1, 'transparent');
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, 9, 0, Math.PI * 2); ctx.fill();
+    function loop() {
+      // Background
+      ctx.fillStyle = '#082008';
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw dense canopy clusters
+      drawClusters();
+
+      // Draw river on top of canopy
+      drawRiver();
+
+      // Birds (tiny V-shapes or dots seen from above)
+      for (const b of birds) {
+        b.x += b.vx;
+        b.y += b.vy + Math.sin(b.x * 0.05) * 0.1;
+        if (b.x > W + 40) b.x = -40;
+        if (b.x < -40) b.x = W + 40;
+        if (b.y < 0) b.y = H;
+        if (b.y > H) b.y = 0;
+
+        const span = rand(4, 7);
+        ctx.strokeStyle = 'rgba(10,20,10,0.8)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(b.x - span, b.y - span * 0.4);
+        ctx.lineTo(b.x, b.y);
+        ctx.lineTo(b.x + span, b.y - span * 0.4);
+        ctx.stroke();
+
+        // Paired bird offset slightly
+        if (b.paired) {
+          ctx.beginPath();
+          ctx.moveTo(b.x - span + 6, b.y + 5 - span * 0.4);
+          ctx.lineTo(b.x + 6, b.y + 5);
+          ctx.lineTo(b.x + span + 6, b.y + 5 - span * 0.4);
+          ctx.stroke();
         }
       }
 

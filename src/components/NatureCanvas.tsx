@@ -27,13 +27,12 @@ export default function NatureCanvas() {
       for (let i = 0; i < 160; i++) stars.push({ x: rand(0, W), y: rand(0, mountainY * 0.9), r: rand(0.4, 2), phase: rand(0, Math.PI * 2) });
 
       const auroraColors = [
-        'rgba(0,220,100,0.28)', 'rgba(0,180,220,0.22)', 'rgba(120,0,220,0.18)',
-        'rgba(0,240,120,0.24)', 'rgba(50,150,255,0.20)',
+        'rgba(0,220,100,0.75)', 'rgba(0,180,220,0.65)', 'rgba(120,0,220,0.55)',
       ];
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 3; i++) {
         aurora.bands.push({
-          x: rand(-W * 0.3, W * 1.3), width: rand(W * 0.2, W * 0.5),
-          col: auroraColors[i], phase: rand(0, Math.PI * 2), amp: rand(15, 35),
+          x: rand(-W * 0.3, W * 1.3), width: rand(W * 0.5, W * 1.0),
+          col: auroraColors[i], phase: rand(0, Math.PI * 2) + i * 1.2, amp: rand(15, 35),
         });
       }
     }
@@ -43,7 +42,7 @@ export default function NatureCanvas() {
 
       // Sky
       const sky = ctx.createLinearGradient(0, 0, 0, mountainY);
-      sky.addColorStop(0, '#010308'); sky.addColorStop(0.5, '#020510'); sky.addColorStop(1, '#030812');
+      sky.addColorStop(0, '#020818'); sky.addColorStop(0.5, '#030a18'); sky.addColorStop(1, '#040c1a');
       ctx.fillStyle = sky; ctx.fillRect(0, 0, W, mountainY);
 
       // Stars
@@ -55,20 +54,19 @@ export default function NatureCanvas() {
       }
       ctx.globalAlpha = 1;
 
-      // Aurora
+      // Aurora — proper horizontal curtains
       for (const b of aurora.bands) {
         b.phase += 0.008;
-        const opacity = 0.6 + Math.sin(b.phase) * 0.4;
-        // Draw a vertical gradient band with wave
-        for (let y = 0; y < mountainY * 0.75; y += 3) {
-          const wave = Math.sin(y * 0.03 + b.phase) * b.amp;
-          const xPos = b.x + wave;
-          const alpha = opacity * Math.sin((y / (mountainY * 0.75)) * Math.PI) * 0.7;
-          const parts = b.col.match(/[\d.]+/g);
-          if (!parts) continue;
-          ctx.fillStyle = `rgba(${parts[0]},${parts[1]},${parts[2]},${alpha * parseFloat(parts[3])})`;
-          ctx.fillRect(xPos, y, b.width, 3);
-        }
+        ctx.save();
+        ctx.globalAlpha = 0.55 + Math.sin(b.phase) * 0.35;
+        const auroraGrad = ctx.createLinearGradient(0, 0, 0, mountainY * 0.8);
+        auroraGrad.addColorStop(0, 'transparent');
+        auroraGrad.addColorStop(0.3, b.col);
+        auroraGrad.addColorStop(0.7, b.col);
+        auroraGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = auroraGrad;
+        ctx.fillRect(0, 0, W, mountainY * 0.8);
+        ctx.restore();
       }
 
       // Meteors
@@ -86,7 +84,7 @@ export default function NatureCanvas() {
       }
 
       // Back mountains
-      ctx.fillStyle = '#18152a';
+      ctx.fillStyle = '#2a2040';
       ctx.beginPath(); ctx.moveTo(0, mountainY);
       for (let x = 0; x <= W; x += 50) {
         const peak = Math.sin(x * 0.009) * 0.38 + Math.sin(x * 0.022) * 0.18;
@@ -95,7 +93,7 @@ export default function NatureCanvas() {
       ctx.lineTo(W, mountainY); ctx.closePath(); ctx.fill();
 
       // Mid mountains
-      ctx.fillStyle = '#0e0c1c';
+      ctx.fillStyle = '#1a1830';
       ctx.beginPath(); ctx.moveTo(0, mountainY);
       for (let x = 0; x <= W; x += 40) {
         const peak = Math.sin(x * 0.013 + 1) * 0.35 + Math.sin(x * 0.031 + 2) * 0.15;
@@ -104,7 +102,7 @@ export default function NatureCanvas() {
       ctx.lineTo(W, mountainY); ctx.closePath(); ctx.fill();
 
       // Front mountains with snow caps
-      ctx.fillStyle = '#080810';
+      ctx.fillStyle = '#0e0e20';
       ctx.beginPath(); ctx.moveTo(0, mountainY);
       const peakData: { x: number; y: number }[] = [];
       for (let x = 0; x <= W; x += 35) {
@@ -116,7 +114,7 @@ export default function NatureCanvas() {
       ctx.lineTo(W, mountainY); ctx.closePath(); ctx.fill();
 
       // Snow caps
-      ctx.fillStyle = 'rgba(220,230,255,0.5)';
+      ctx.fillStyle = 'rgba(230,240,255,0.85)';
       for (let i = 0; i < peakData.length - 1; i++) {
         const p = peakData[i];
         if (p.y < mountainY * 0.35) {
@@ -127,7 +125,7 @@ export default function NatureCanvas() {
 
       // Pine tree forest (row of triangles)
       const treeY = mountainY * 0.98;
-      ctx.fillStyle = '#050c08';
+      ctx.fillStyle = '#0a1a0a';
       for (let tx = -15; tx < W + 15; tx += rand(18, 30)) {
         const th = rand(35, 65); const tw = th * 0.38;
         ctx.beginPath(); ctx.moveTo(tx, treeY); ctx.lineTo(tx - tw, treeY); ctx.lineTo(tx, treeY - th); ctx.lineTo(tx + tw, treeY); ctx.closePath(); ctx.fill();
@@ -139,7 +137,7 @@ export default function NatureCanvas() {
 
       // Lake
       const lake = ctx.createLinearGradient(0, lakeY, 0, H);
-      lake.addColorStop(0, '#040a14'); lake.addColorStop(1, '#020508');
+      lake.addColorStop(0, '#050c18'); lake.addColorStop(1, '#030810');
       ctx.fillStyle = lake; ctx.fillRect(0, lakeY, W, H - lakeY);
 
       // Ice cracks

@@ -33,10 +33,10 @@ export default function DesertCanvas() {
 
       // Dune layers (back to front)
       const duneConfigs = [
-        { yBase: H * 0.52, amplitude: 0.22, freq: 0.006, col: '#150a03' },
-        { yBase: H * 0.62, amplitude: 0.28, freq: 0.008, col: '#1c0e04' },
-        { yBase: H * 0.72, amplitude: 0.32, freq: 0.010, col: '#221205' },
-        { yBase: H * 0.82, amplitude: 0.22, freq: 0.014, col: '#281508' },
+        { yBase: H * 0.52, amplitude: 0.22, freq: 0.006, col: '#3a1e08' },
+        { yBase: H * 0.62, amplitude: 0.28, freq: 0.008, col: '#4a2510' },
+        { yBase: H * 0.72, amplitude: 0.32, freq: 0.010, col: '#5a2e14' },
+        { yBase: H * 0.82, amplitude: 0.22, freq: 0.014, col: '#5a2e14' },
       ];
       for (const dc of duneConfigs) {
         const pts: { x: number; y: number }[] = [];
@@ -53,7 +53,7 @@ export default function DesertCanvas() {
     }
 
     function drawCactus(x: number, y: number, scale: number) {
-      const col = '#0d1a06';
+      const col = '#1a2808';
       // Main trunk
       ctx.fillStyle = col;
       ctx.fillRect(x - 4 * scale, y - 50 * scale, 8 * scale, 50 * scale);
@@ -70,7 +70,7 @@ export default function DesertCanvas() {
 
       // Sky
       const sky = ctx.createLinearGradient(0, 0, 0, duneY);
-      sky.addColorStop(0, '#020408'); sky.addColorStop(0.4, '#06050f'); sky.addColorStop(1, '#0c080a');
+      sky.addColorStop(0, '#030508'); sky.addColorStop(0.4, '#080514'); sky.addColorStop(1, '#0c0810');
       ctx.fillStyle = sky; ctx.fillRect(0, 0, W, duneY);
 
       // Milky Way band
@@ -100,7 +100,7 @@ export default function DesertCanvas() {
 
       // Moon with warm glow
       const moonX = W * 0.72, moonY = H * 0.14;
-      const moonPulseR = 50 + Math.sin(moonPulse) * 4;
+      const moonPulseR = 62 + Math.sin(moonPulse) * 4;
       const moonGlow = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, moonPulseR * 2.5);
       moonGlow.addColorStop(0, 'rgba(255,240,180,0.25)'); moonGlow.addColorStop(1, 'transparent');
       ctx.fillStyle = moonGlow; ctx.beginPath(); ctx.arc(moonX, moonY, moonPulseR * 2.5, 0, Math.PI * 2); ctx.fill();
@@ -131,8 +131,8 @@ export default function DesertCanvas() {
         ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
         // Rim light on top edge
         const rimGrad = ctx.createLinearGradient(0, 0, 0, 6);
-        rimGrad.addColorStop(0, 'rgba(255,180,80,0.12)'); rimGrad.addColorStop(1, 'transparent');
-        ctx.strokeStyle = 'rgba(255,180,80,0.10)'; ctx.lineWidth = 2;
+        rimGrad.addColorStop(0, 'rgba(255,200,100,0.35)'); rimGrad.addColorStop(1, 'transparent');
+        ctx.strokeStyle = 'rgba(255,200,100,0.35)'; ctx.lineWidth = 2;
         ctx.beginPath();
         for (let j = 0; j < d.points.length; j++) { j === 0 ? ctx.moveTo(d.points[j].x, d.points[j].y) : ctx.lineTo(d.points[j].x, d.points[j].y); }
         ctx.stroke();

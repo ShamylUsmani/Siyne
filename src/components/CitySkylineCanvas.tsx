@@ -15,14 +15,14 @@ export default function CitySkylineCanvas() {
     let skylineY = 0, waterY = 0;
     const buildings: Building[] = []; const stars: Star[] = [];
 
-    const BLDG_COLS = ['#060c20','#080f28','#050a1c','#0a1030','#070d24'];
+    const BLDG_COLS = ['#0e1e42','#121c3a','#0c1830','#142040','#101835'];
 
     function makeBuilding(x: number, w: number, h: number): Building {
       const rows = Math.floor(h / 14); const cols = Math.floor(w / 11);
       const windows: { r: number; c: number; on: boolean }[] = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          windows.push({ r, c, on: Math.random() > 0.45 });
+          windows.push({ r, c, on: Math.random() > 0.30 });
         }
       }
       return { x, w, h, col: BLDG_COLS[Math.floor(Math.random() * BLDG_COLS.length)], windows };
@@ -32,7 +32,7 @@ export default function CitySkylineCanvas() {
       if (!canvas) return;
       W = canvas.offsetWidth || 1200; H = canvas.offsetHeight || 700;
       canvas.width = W; canvas.height = H;
-      skylineY = H * 0.55; waterY = H * 0.72;
+      skylineY = H * 0.55; waterY = H * 0.75;
       buildings.length = 0; stars.length = 0;
 
       let bx = 0;
@@ -58,9 +58,9 @@ export default function CitySkylineCanvas() {
         }
       }
 
-      // Sky gradient (deep night)
+      // Sky gradient (deep night — lighter for contrast)
       const sky = ctx.createLinearGradient(0, 0, 0, skylineY);
-      sky.addColorStop(0, '#020410'); sky.addColorStop(0.6, '#050820'); sky.addColorStop(1, '#0a1038');
+      sky.addColorStop(0, '#0d1840'); sky.addColorStop(0.6, '#111e48'); sky.addColorStop(1, '#1a2a60');
       ctx.fillStyle = sky; ctx.fillRect(0, 0, W, skylineY);
 
       // Stars
@@ -83,10 +83,10 @@ export default function CitySkylineCanvas() {
       moonGlow.addColorStop(0, 'rgba(200,200,120,0.08)'); moonGlow.addColorStop(1, 'transparent');
       ctx.fillStyle = moonGlow; ctx.beginPath(); ctx.arc(moonX, moonY, 60, 0, Math.PI * 2); ctx.fill();
 
-      // Horizon glow
-      const hg = ctx.createLinearGradient(0, skylineY - 80, 0, skylineY);
-      hg.addColorStop(0, 'transparent'); hg.addColorStop(1, 'rgba(60,80,180,0.18)');
-      ctx.fillStyle = hg; ctx.fillRect(0, skylineY - 80, W, 80);
+      // Horizon glow (more prominent)
+      const hg = ctx.createLinearGradient(0, skylineY - 100, 0, skylineY);
+      hg.addColorStop(0, 'transparent'); hg.addColorStop(1, 'rgba(100,130,255,0.35)');
+      ctx.fillStyle = hg; ctx.fillRect(0, skylineY - 100, W, 100);
 
       // Buildings
       for (const b of buildings) {
@@ -103,9 +103,16 @@ export default function CitySkylineCanvas() {
           const wx = b.x + win.c * 11 + 3;
           const wy = by + win.r * 14 + 5;
           if (wx + 7 > b.x + b.w) continue;
-          ctx.fillStyle = win.on ? 'rgba(255,240,140,0.88)' : 'rgba(20,30,60,0.5)';
+          ctx.fillStyle = win.on ? 'rgba(255,245,120,0.95)' : 'rgba(20,30,60,0.4)';
           ctx.fillRect(wx, wy, 7, 8);
         }
+
+        // Subtle top/left edge highlight for depth
+        ctx.strokeStyle = 'rgba(80,100,180,0.25)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(b.x, by + b.h); ctx.lineTo(b.x, by); ctx.lineTo(b.x + b.w, by);
+        ctx.stroke();
       }
 
       // Water / reflection

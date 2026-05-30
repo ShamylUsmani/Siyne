@@ -164,15 +164,67 @@ export default function SuburbanCanvas() {
     }
 
     function drawCar(c: Car) {
+      const x = c.x, y = c.y, w = c.w, h = c.h;
+      const dir = c.spd > 0 ? 1 : -1;
+
+      // Main body (lower rectangle)
       ctx.fillStyle = c.col;
-      ctx.beginPath(); ctx.roundRect(c.x - c.w / 2, c.y - c.h / 2, c.w, c.h, 4); ctx.fill();
-      ctx.fillStyle = 'rgba(160,210,240,0.55)';
-      ctx.beginPath(); ctx.roundRect(c.x - c.w * 0.25, c.y - c.h * 0.42, c.w * 0.45, c.h * 0.78, 2); ctx.fill();
-      // Wheels
-      ctx.fillStyle = '#202020';
-      for (const wx of [-0.32, 0.32]) {
-        ctx.beginPath(); ctx.arc(c.x + c.w * wx, c.y + c.h * 0.42, c.h * 0.38, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();
+      ctx.roundRect(x - w / 2, y - h * 0.45, w, h * 0.75, 5);
+      ctx.fill();
+
+      // Cabin/roof (centered, narrower, taller)
+      ctx.fillStyle = c.col;
+      ctx.beginPath();
+      const cabinLeft  = x - w * 0.18;
+      const cabinRight = x + w * 0.22;
+      const cabinTop   = y - h * 1.0;
+      const cabinBot   = y - h * 0.45;
+      ctx.moveTo(cabinLeft + (dir > 0 ? 8 : 0), cabinTop);
+      ctx.lineTo(cabinRight - (dir > 0 ? 0 : 8), cabinTop);
+      ctx.lineTo(cabinRight + (dir > 0 ? 5 : 0), cabinBot);
+      ctx.lineTo(cabinLeft - (dir > 0 ? 0 : 5), cabinBot);
+      ctx.closePath();
+      ctx.fill();
+
+      // Window (inside cabin)
+      ctx.fillStyle = 'rgba(140,200,230,0.65)';
+      ctx.beginPath();
+      ctx.roundRect(cabinLeft + 3, cabinTop + 3, (cabinRight - cabinLeft) - 6, (cabinBot - cabinTop) - 5, 2);
+      ctx.fill();
+
+      // Window divider (vertical line in middle)
+      ctx.strokeStyle = `rgba(0,0,0,0.2)`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo((cabinLeft + cabinRight) / 2, cabinTop + 3);
+      ctx.lineTo((cabinLeft + cabinRight) / 2, cabinBot - 2);
+      ctx.stroke();
+
+      // Wheels (2, proper position)
+      const wheelY = y + h * 0.28;
+      const wheelR = h * 0.42;
+      for (const wx of [x - w * 0.28, x + w * 0.28]) {
+        // Tire
+        ctx.fillStyle = '#1a1a18';
+        ctx.beginPath(); ctx.arc(wx, wheelY, wheelR, 0, Math.PI * 2); ctx.fill();
+        // Rim
+        ctx.fillStyle = '#909090';
+        ctx.beginPath(); ctx.arc(wx, wheelY, wheelR * 0.55, 0, Math.PI * 2); ctx.fill();
+        // Hubcap center
+        ctx.fillStyle = '#c0c0c0';
+        ctx.beginPath(); ctx.arc(wx, wheelY, wheelR * 0.2, 0, Math.PI * 2); ctx.fill();
       }
+
+      // Headlight / taillight
+      const frontX = dir > 0 ? x + w / 2 - 3 : x - w / 2 + 3;
+      const rearX  = dir > 0 ? x - w / 2 + 3 : x + w / 2 - 3;
+      // Front: yellow/white
+      ctx.fillStyle = 'rgba(255,245,150,0.9)';
+      ctx.beginPath(); ctx.roundRect(frontX - (dir > 0 ? 4 : 0), y - h * 0.3, 4, 7, 1); ctx.fill();
+      // Rear: red
+      ctx.fillStyle = 'rgba(220,50,50,0.85)';
+      ctx.beginPath(); ctx.roundRect(rearX - (dir > 0 ? 0 : 4), y - h * 0.3, 4, 7, 1); ctx.fill();
     }
 
     function drawWalker(w: Walker) {
