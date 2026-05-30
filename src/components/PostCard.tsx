@@ -48,7 +48,8 @@ interface Comment {
 /* ── reaction emoji map ─────────────────────────────── */
 type ReactionType = 'like' | 'love' | 'laugh' | 'sad';
 const REACTION_TYPES: ReactionType[] = ['like', 'love', 'laugh', 'sad'];
-const RX_EMOJI: Record<ReactionType, string> = { like: '👍', love: '❤️', laugh: '😂', sad: '😢' };
+const RX_EMOJI:  Record<ReactionType, string> = { like: '👍', love: '❤️', laugh: '😂', sad: '😢' };
+const RX_LABEL:  Record<ReactionType, string> = { like: 'Like', love: 'Love', laugh: 'Haha', sad: 'Sad' };
 const COMMENT_REACTIONS = ['👍', '❤️', '😂', '😢'];
 
 const REPORT_REASONS = [
@@ -210,6 +211,16 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
       }
     } catch (err) {
       console.error('Comment reaction failed:', err);
+    }
+  }
+
+  async function deleteComment(commentId: string) {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'posts', post.id, 'comments', commentId));
+      await updateDoc(doc(db, 'posts', post.id), { commentCount: increment(-1) }).catch(() => {});
+    } catch (err) {
+      console.error('Delete comment failed:', err);
     }
   }
 
@@ -381,18 +392,33 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
         </div>
       ) : null}
 
-      {/* lightbox */}
+      {/* lightbox — Facebook style */}
       {lightboxSrc && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.92)' }}
-          onClick={() => setLightboxSrc(null)}>
-          <button className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center text-xl z-10"
-            style={{ background: 'rgba(255,255,255,0.12)', color: 'white' }}
-            onClick={() => setLightboxSrc(null)}>✕</button>
-          <img src={lightboxSrc} alt=""
-            className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
-            style={{ maxHeight: '90vh', maxWidth: '90vw' }}
-            onClick={e => e.stopPropagation()} />
+        <div className="fixed inset-0 z-[300] flex flex-col" style={{ background: '#000' }}>
+          {/* top bar */}
+          <div className="flex items-center justify-end px-4 py-3 flex-shrink-0 relative z-10">
+            <button
+              onClick={() => setLightboxSrc(null)}
+              className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+              style={{ background: 'rgba(255,255,255,0.15)', color: 'white' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.28)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          {/* image — click backdrop to close */}
+          <div className="flex-1 flex items-center justify-center px-4 pb-6 cursor-zoom-out"
+            onClick={() => setLightboxSrc(null)}>
+            <img
+              src={lightboxSrc}
+              alt=""
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', userSelect: 'none' }}
+              onClick={e => e.stopPropagation()}
+              draggable={false}
+            />
+          </div>
         </div>
       )}
 
@@ -410,16 +436,29 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
           )}
 
           {showPicker && (
-            <div className="absolute bottom-full left-0 mb-2 z-20 flex gap-0.5 px-1.5 py-1.5 rounded-2xl shadow-xl"
-              style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)', backdropFilter: 'blur(20px)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-              {REACTION_TYPES.map(type => (
-                <button key={type}
-                  onClick={() => { handleReact(type); setShowPicker(false); }}
-                  className="w-12 h-12 flex items-center justify-center text-2xl rounded-xl transition-all active:scale-125"
-                  style={{ background: myRx === type ? 'rgba(176,30,54,0.25)' : 'transparent' }}
-                  title={type}>
-                  {RX_EMOJI[type]}
-                </button>
+            <div className="reaction-picker absolute bottom-full left-0 mb-3 flex items-end gap-0.5 px-2 py-2 rounded-full shadow-2xl"
+              style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}>
+              {REACTION_TYPES.map((type, i) => (
+                <div key={type} className="relative flex flex-col items-center group/emoji"
+                  style={{ animationDelay: `${i * 0.04}s` }}>
+                  {/* label appears above on hover */}
+                  <div className="absolute bottom-full mb-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap pointer-events-none
+                    opacity-0 group-hover/emoji:opacity-100 transition-opacity duration-100"
+                    style={{ background: 'rgba(0,0,0,0.78)', color: 'white' }}>
+                    {RX_LABEL[type]}
+                  </div>
+                  <button
+                    onClick={() => { handleReact(type); setShowPicker(false); }}
+                    className="flex items-center justify-center rounded-full transition-all duration-150
+                      group-hover/emoji:scale-[1.40] group-hover/emoji:-translate-y-2 active:scale-95 select-none"
+                    style={{
+                      width: 44, height: 44, fontSize: 26,
+                      background: myRx === type ? 'rgba(176,30,54,0.18)' : 'transparent',
+                      touchAction: 'manipulation',
+                    }}>
+                    {RX_EMOJI[type]}
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -518,11 +557,18 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                           React
                         </button>
                         <button onClick={() => { setReplyToId(c.id); setReplyToName(c.authorName); }}
-                          className="text-xs transition-colors" style={{ color: 'var(--fg4)' }}
-                          onMouseEnter={e => e.currentTarget.style.color = 'var(--fg2)'}
-                          onMouseLeave={e => e.currentTarget.style.color = 'var(--fg4)'}>
+                          className="text-xs transition-colors hover:text-white" style={{ color: 'var(--fg4)' }}>
                           Reply
                         </button>
+                        {c.uid === user?.uid && (
+                          <button onClick={() => deleteComment(c.id)}
+                            className="text-xs ml-auto transition-colors"
+                            style={{ color: 'var(--fg4)' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg4)')}>
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -542,7 +588,7 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                           <p className="text-sm leading-relaxed" style={{ color: 'var(--fg1)' }}>{r.text}</p>
                           {r.mediaUrl && <img src={r.mediaUrl} className="mt-2 rounded-lg max-h-40 object-cover" alt="" />}
                         </div>
-                        <div className="flex items-center gap-3 mt-1 px-1">
+                        <div className="flex items-center gap-3 mt-1 px-1 flex-wrap">
                           {r.reactions && Object.entries(
                             Object.entries(r.reactions).reduce((acc, [, emoji]) => {
                               acc[emoji] = (acc[emoji] || 0) + 1; return acc;
@@ -554,20 +600,21 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                               {emoji} <span>{count}</span>
                             </button>
                           ))}
-                          <div className="relative group/rxn">
-                            <button className="text-xs transition-colors" style={{ color: 'var(--fg4)' }}
-                              onMouseEnter={e => e.currentTarget.style.color = 'var(--fg2)'}
-                              onMouseLeave={e => e.currentTarget.style.color = 'var(--fg4)'}>
-                              React
+                          <button
+                            onClick={ev => openReactionPicker(ev, r.id)}
+                            className="text-xs transition-colors hover:text-white"
+                            style={{ color: 'var(--fg4)', touchAction: 'manipulation' }}>
+                            React
+                          </button>
+                          {r.uid === user?.uid && (
+                            <button onClick={() => deleteComment(r.id)}
+                              className="text-xs ml-auto transition-colors"
+                              style={{ color: 'var(--fg4)' }}
+                              onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                              onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg4)')}>
+                              Delete
                             </button>
-                            <div className="absolute bottom-full left-0 mb-1 hidden group-hover/rxn:flex gap-1 px-2 py-1 rounded-full z-10 shadow-lg"
-                              style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)' }}>
-                              {COMMENT_REACTIONS.map(e => (
-                                <button key={e} onClick={() => toggleCommentReaction(r.id, e)}
-                                  className="text-base hover:scale-125 transition-transform">{e}</button>
-                              ))}
-                            </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </div>
