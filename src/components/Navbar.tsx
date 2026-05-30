@@ -344,6 +344,7 @@ export default function Navbar() {
             {([
               { href: '/feed',    label: 'Feed' },
               { href: '/jobs',    label: 'Jobs' },
+              { href: '/pitches', label: 'Pitches' },
               { href: '/connect', label: 'Connect' },
             ] as const).map(({ href, label }) => {
               const active = pathname === href || pathname.startsWith(href + '/');
@@ -592,6 +593,7 @@ export default function Navbar() {
           {([
             { href: '/feed',               label: 'Feed' },
             { href: '/jobs',               label: 'Jobs' },
+            { href: '/pitches',            label: 'Pitches' },
             { href: '/connect',            label: 'Connect' },
             { href: '/messages',           label: 'Messages' },
             { href: `/profile/${user.uid}`, label: 'Profile' },

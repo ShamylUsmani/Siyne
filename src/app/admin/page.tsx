@@ -13,7 +13,7 @@ import Navbar from '@/components/Navbar';
 
 const ADMIN_EMAIL = 'usmani.shamyl@gmail.com';
 
-type Tab = 'home' | 'reports' | 'job-reports' | 'users' | 'companies';
+type Tab = 'home' | 'reports' | 'job-reports' | 'users' | 'companies' | 'pitches';
 
 /* ── types ──────────────────────────────────────────── */
 interface Stats {
@@ -205,12 +205,28 @@ export default function AdminPage() {
   const [cmpLoading,  setCmpLoading] = useState(false);
   const [busyCmp,     setBusyCmp]    = useState<string | null>(null);
 
+  /* pitches */
+  interface AdminPitch {
+    id: string; uid: string; companyName: string; founderName: string;
+    status: string; featured: boolean; interestedCount: number; viewCount: number;
+    createdAt: { seconds: number } | null;
+  }
+  interface AdminInvestorProfile {
+    id: string; uid: string; name: string; type: string; verified: boolean;
+  }
+  const [adminPitches,    setAdminPitches]    = useState<AdminPitch[]>([]);
+  const [pitchLoading,    setPitchLoading]    = useState(false);
+  const [busyPitch,       setBusyPitch]       = useState<string | null>(null);
+  const [pendingInvestors,setPendingInvestors]= useState<AdminInvestorProfile[]>([]);
+  const [busyInv,         setBusyInv]         = useState<string | null>(null);
+
   useEffect(() => {
     if (!user || user.email !== ADMIN_EMAIL) return;
     if (tab === 'home')      loadStats();
     if (tab === 'reports')   loadReports();
     if (tab === 'users')     loadUsers();
     if (tab === 'companies') loadCompanies();
+    if (tab === 'pitches')   loadPitches();
   }, [tab, user]);
 
   /* ── loaders ─────────────────────────────────────── */
@@ -309,6 +325,61 @@ export default function AdminPage() {
       followerCount: d.data().followerCount ?? 0, verified: d.data().verified ?? false,
     })));
     setCmpLoading(false);
+  }
+
+  async function loadPitches() {
+    setPitchLoading(true);
+    const [pitchSnap, invSnap] = await Promise.all([
+      getDocs(query(collection(db, 'pitches'), orderBy('createdAt', 'desc'))),
+      getDocs(query(collection(db, 'investorProfiles'), where('verified', '==', false))),
+    ]);
+    setAdminPitches(pitchSnap.docs.map(d => ({
+      id: d.id, uid: d.data().uid ?? '',
+      companyName: d.data().companyName ?? '', founderName: d.data().founderName ?? '',
+      status: d.data().status ?? 'active', featured: d.data().featured ?? false,
+      interestedCount: d.data().interestedCount ?? 0, viewCount: d.data().viewCount ?? 0,
+      createdAt: d.data().createdAt ?? null,
+    })));
+    setPendingInvestors(invSnap.docs.map(d => ({
+      id: d.id, uid: d.data().uid ?? '', name: d.data().name ?? '',
+      type: d.data().type ?? '', verified: false,
+    })));
+    setPitchLoading(false);
+  }
+
+  async function toggleFeatured(id: string, val: boolean) {
+    setBusyPitch(id + '_feat');
+    await updateDoc(doc(db, 'pitches', id), { featured: val });
+    setAdminPitches(prev => prev.map(p => p.id === id ? { ...p, featured: val } : p));
+    setBusyPitch(null);
+  }
+
+  async function markFunded(id: string) {
+    setBusyPitch(id + '_fund');
+    await updateDoc(doc(db, 'pitches', id), { status: 'funded' });
+    setAdminPitches(prev => prev.map(p => p.id === id ? { ...p, status: 'funded' } : p));
+    setBusyPitch(null);
+  }
+
+  async function removePitch(id: string) {
+    setBusyPitch(id + '_rm');
+    await updateDoc(doc(db, 'pitches', id), { status: 'closed' });
+    setAdminPitches(prev => prev.map(p => p.id === id ? { ...p, status: 'closed' } : p));
+    setBusyPitch(null);
+  }
+
+  async function approveInvestor(id: string) {
+    setBusyInv(id + '_app');
+    await updateDoc(doc(db, 'investorProfiles', id), { verified: true });
+    setPendingInvestors(prev => prev.filter(i => i.id !== id));
+    setBusyInv(null);
+  }
+
+  async function rejectInvestor(id: string) {
+    setBusyInv(id + '_rej');
+    await deleteDoc(doc(db, 'investorProfiles', id));
+    setPendingInvestors(prev => prev.filter(i => i.id !== id));
+    setBusyInv(null);
   }
 
   /* load full post + comments for modal */
@@ -456,6 +527,7 @@ export default function AdminPage() {
     { key: 'job-reports', label: 'Reported Jobs' },
     { key: 'users',       label: 'Users' },
     { key: 'companies',   label: 'Companies' },
+    { key: 'pitches',     label: 'Pitches', badge: pendingInvestors.length || undefined },
   ];
 
   const THead = (...cols: string[]) => (
@@ -691,6 +763,114 @@ export default function AdminPage() {
             <p className="text-xs text-right" style={{ color: 'var(--fg4)' }}>
               {filteredUsers.length} of {users.length} users
             </p>
+          </div>
+        )}
+
+        {/* ══ PITCHES ══ */}
+        {tab === 'pitches' && (
+          <div className="space-y-6">
+            {/* pitch moderation */}
+            <div>
+              <h2 className="text-sm font-bold mb-3" style={{ color: 'var(--fg2)' }}>Pitch Moderation</h2>
+              <div className="card overflow-hidden p-0">
+                {pitchLoading ? <Spinner /> : adminPitches.length === 0 ? <Empty text="No pitches yet" /> : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      {THead('Company', 'Founder', 'Status', 'Views', 'Interested', 'Actions')}
+                      <tbody>
+                        {adminPitches.map(p => (
+                          <tr key={p.id} style={{ borderBottom: '1px solid var(--sur)' }}>
+                            <td className="px-4 py-3">
+                              <p className="text-sm font-medium" style={{ color: 'var(--fg1)' }}>{p.companyName}</p>
+                              {p.featured && (
+                                <span className="text-[10px] font-bold" style={{ color: '#fbbf24' }}>★ Featured</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-xs" style={{ color: 'var(--fg3)' }}>{p.founderName}</td>
+                            <td className="px-4 py-3">
+                              <span className="text-xs font-medium px-2 py-0.5 rounded-full"
+                                style={{
+                                  background: p.status === 'funded' ? 'rgba(16,185,129,0.15)'
+                                    : p.status === 'closed' ? 'rgba(107,114,128,0.15)'
+                                    : 'rgba(59,130,246,0.15)',
+                                  color: p.status === 'funded' ? '#10b981'
+                                    : p.status === 'closed' ? '#9ca3af'
+                                    : '#60a5fa',
+                                }}>
+                                {p.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm" style={{ color: 'var(--fg3)' }}>{p.viewCount}</td>
+                            <td className="px-4 py-3 text-sm" style={{ color: 'var(--fg3)' }}>{p.interestedCount}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex gap-1.5 flex-wrap">
+                                <Btn
+                                  label={p.featured ? 'Unfeature' : '★ Feature'}
+                                  variant="amber"
+                                  onClick={() => toggleFeatured(p.id, !p.featured)}
+                                  busy={busyPitch === p.id + '_feat'} />
+                                {p.status === 'active' && (
+                                  <Btn label="Mark Funded" variant="default"
+                                    onClick={() => markFunded(p.id)}
+                                    busy={busyPitch === p.id + '_fund'} />
+                                )}
+                                {p.status !== 'closed' && (
+                                  <Btn label="Remove" variant="danger"
+                                    onClick={() => removePitch(p.id)}
+                                    busy={busyPitch === p.id + '_rm'} />
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* investor approvals */}
+            <div>
+              <h2 className="text-sm font-bold mb-3" style={{ color: 'var(--fg2)' }}>
+                Pending Investor Profiles
+                {pendingInvestors.length > 0 && (
+                  <span className="ml-2 text-xs font-bold px-1.5 py-0.5 rounded-full"
+                    style={{ background: '#B01E36', color: 'white' }}>
+                    {pendingInvestors.length}
+                  </span>
+                )}
+              </h2>
+              <div className="card overflow-hidden p-0">
+                {pitchLoading ? <Spinner /> : pendingInvestors.length === 0 ? (
+                  <Empty text="No pending investor profiles — all clear ✓" />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      {THead('Name', 'Type', 'Actions')}
+                      <tbody>
+                        {pendingInvestors.map(inv => (
+                          <tr key={inv.id} style={{ borderBottom: '1px solid var(--sur)' }}>
+                            <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--fg1)' }}>{inv.name}</td>
+                            <td className="px-4 py-3 text-xs" style={{ color: 'var(--fg3)' }}>{inv.type}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex gap-1.5">
+                                <Btn label="Approve ✓" variant="default"
+                                  onClick={() => approveInvestor(inv.id)}
+                                  busy={busyInv === inv.id + '_app'} />
+                                <Btn label="Reject" variant="danger"
+                                  onClick={() => rejectInvestor(inv.id)}
+                                  busy={busyInv === inv.id + '_rej'} />
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
