@@ -78,8 +78,10 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
   const cmtImgRef = useRef<HTMLInputElement>(null);
 
   /* reply state */
-  const [replyToId,   setReplyToId]   = useState<string | null>(null);
-  const [replyToName, setReplyToName] = useState('');
+  const [replyToId,    setReplyToId]    = useState<string | null>(null);
+  const [replyToName,  setReplyToName]  = useState('');
+  /* comment reaction picker */
+  const [openCmtRxId,  setOpenCmtRxId]  = useState<string | null>(null);
 
   /* report */
   const [showReport,  setShowReport]  = useState(false);
@@ -99,6 +101,14 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
       if (snap.exists()) setLivePhotoURL(snap.data().photoURL ?? '');
     }).catch(() => {});
   }, [post.uid, post.authorPhotoURL]);
+
+  /* close comment reaction picker on outside click */
+  useEffect(() => {
+    if (!openCmtRxId) return;
+    function close() { setOpenCmtRxId(null); }
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [openCmtRxId]);
 
   /* load comments when section opens */
   useEffect(() => {
@@ -377,7 +387,7 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="rounded-xl px-3 py-2 inline-block max-w-full" style={{ background: 'var(--sur)' }}>
-                        <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--fg2)' }}>{c.authorName}</p>
+                        <Link href={`/profile/${c.uid}`} className="text-xs font-semibold mb-0.5 hover:underline" style={{ color: 'var(--fg2)' }}>{c.authorName}</Link>
                         <p className="text-sm leading-relaxed" style={{ color: 'var(--fg1)' }}>{c.text}</p>
                         {c.mediaUrl && <img src={c.mediaUrl} className="mt-2 rounded-lg max-h-40 object-cover" alt="" />}
                       </div>
@@ -393,19 +403,28 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                             {emoji} <span>{count}</span>
                           </button>
                         ))}
-                        <div className="relative group/rxn">
-                          <button className="text-xs transition-colors" style={{ color: 'var(--fg4)' }}
-                            onMouseEnter={e => e.currentTarget.style.color = 'var(--fg2)'}
-                            onMouseLeave={e => e.currentTarget.style.color = 'var(--fg4)'}>
+                        <div className="relative">
+                          <button
+                            onClick={ev => { ev.stopPropagation(); setOpenCmtRxId(openCmtRxId === c.id ? null : c.id); }}
+                            className="text-xs transition-colors" style={{ color: 'var(--fg4)' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = 'var(--fg2)')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg4)')}>
                             React
                           </button>
-                          <div className="absolute bottom-full left-0 mb-1 hidden group-hover/rxn:flex gap-1 px-2 py-1 rounded-full z-10 shadow-lg"
-                            style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)' }}>
-                            {COMMENT_REACTIONS.map(e => (
-                              <button key={e} onClick={() => toggleCommentReaction(c.id, e)}
-                                className="text-base hover:scale-125 transition-transform">{e}</button>
-                            ))}
-                          </div>
+                          {openCmtRxId === c.id && (
+                            <div className="absolute bottom-full left-0 mb-1 flex gap-1 px-2 py-1.5 rounded-full z-20 shadow-xl"
+                              style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)' }}
+                              onClick={e => e.stopPropagation()}>
+                              {COMMENT_REACTIONS.map(e => (
+                                <button key={e}
+                                  onClick={() => { toggleCommentReaction(c.id, e); setOpenCmtRxId(null); }}
+                                  className="text-xl w-9 h-9 flex items-center justify-center rounded-lg hover:scale-125 transition-transform"
+                                  style={{ background: c.reactions?.[user?.uid ?? ''] === e ? 'rgba(176,30,54,0.2)' : 'transparent' }}>
+                                  {e}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <button onClick={() => { setReplyToId(c.id); setReplyToName(c.authorName); }}
                           className="text-xs transition-colors" style={{ color: 'var(--fg4)' }}

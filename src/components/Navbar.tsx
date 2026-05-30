@@ -138,7 +138,8 @@ export default function Navbar() {
   const [allUsers,       setAllUsers]       = useState<{ uid: string; name: string; jobTitle: string; company: string }[]>([]);
   const [allCompanies,   setAllCompanies]   = useState<{ id: string; name: string; industry: string; logoUrl: string }[]>([]);
   const [usersLoaded,    setUsersLoaded]    = useState(false);
-  const searchRef  = useRef<HTMLDivElement>(null);
+  const searchRef       = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
   async function handleSignOut() {
@@ -209,7 +210,9 @@ export default function Navbar() {
   /* close dropdowns on outside click */
   useEffect(() => {
     function h(e: MouseEvent) {
-      if (searchRef.current  && !searchRef.current.contains(e.target as Node))  setShowDrop(false);
+      const inDesktop = searchRef.current?.contains(e.target as Node);
+      const inMobile  = mobileSearchRef.current?.contains(e.target as Node);
+      if (!inDesktop && !inMobile) setShowDrop(false);
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) setShowProfile(false);
     }
     document.addEventListener('mousedown', h);
@@ -522,7 +525,7 @@ export default function Navbar() {
 
       {/* mobile persistent search row */}
       {user && (
-        <div ref={searchRef} className="sm:hidden px-4 py-2" style={{ borderTop: '1px solid var(--sur)' }}>
+        <div ref={mobileSearchRef} className="sm:hidden px-4 py-2" style={{ borderTop: '1px solid var(--sur)' }}>
           <form onSubmit={handleSearch}>
             <div className="relative">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
