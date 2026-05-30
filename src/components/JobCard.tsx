@@ -18,16 +18,16 @@ export interface Job {
 }
 
 const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  'Full-time':  { bg: 'rgba(20,80,30,0.45)',  text: '#86efac' },
-  'Part-time':  { bg: 'rgba(80,60,10,0.45)',  text: '#fde68a' },
-  'Contract':   { bg: 'rgba(60,20,80,0.45)',  text: '#d8b4fe' },
-  'Internship': { bg: 'rgba(80,10,50,0.45)',  text: '#f9a8d4' },
+  'Full-time':   { bg: 'rgba(59,130,246,0.15)',  text: '#3b82f6' },
+  'Part-time':   { bg: 'rgba(139,92,246,0.15)',  text: '#8b5cf6' },
+  'Contract':    { bg: 'rgba(245,158,11,0.15)',  text: '#d97706' },
+  'Internship':  { bg: 'rgba(16,185,129,0.15)',  text: '#10b981' },
 };
 
 const ARR_COLORS: Record<string, { bg: string; text: string }> = {
-  'Remote':  { bg: 'rgba(10,40,90,0.50)',  text: '#93c5fd' },
-  'Hybrid':  { bg: 'rgba(40,70,20,0.50)',  text: '#a7f3d0' },
-  'On-site': { bg: 'rgba(80,50,10,0.50)',  text: '#fcd34d' },
+  'Remote':  { bg: 'rgba(99,102,241,0.15)',  text: '#6366f1' },
+  'Hybrid':  { bg: 'rgba(236,72,153,0.15)',  text: '#ec4899' },
+  'On-site': { bg: 'rgba(245,158,11,0.15)',  text: '#d97706' },
 };
 
 export default function JobCard({ job }: { job: Job }) {

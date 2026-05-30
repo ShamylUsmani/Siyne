@@ -74,6 +74,24 @@ async function uploadImage(file: File, path: string): Promise<string> {
   return getDownloadURL(storageRef);
 }
 
+function SkeletonProfile() {
+  return (
+    <div className="card overflow-hidden p-0 mb-4">
+      <div className="skeleton h-44 w-full rounded-none" />
+      <div className="px-6 pb-6">
+        <div className="flex items-end justify-between -mt-10 mb-4">
+          <div className="skeleton w-20 h-20 rounded-full border-4 flex-shrink-0" style={{ borderColor: 'var(--card-bg)' }} />
+          <div className="skeleton w-24 h-8 rounded-lg" />
+        </div>
+        <div className="space-y-2">
+          <div className="skeleton-text w-40" />
+          <div className="skeleton-text w-56 h-3" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -333,7 +351,26 @@ export default function ProfilePage() {
 
       <main className="max-w-2xl mx-auto px-4 py-8">
         {fetching ? (
-          <div className="text-center py-20 text-sm" style={{ color: 'var(--fg4)' }}>Loading profile…</div>
+          <div className="space-y-4">
+            <SkeletonProfile />
+            <div className="card space-y-3">
+              <div className="skeleton-text w-20 h-3" />
+              <div className="skeleton-text w-full" />
+              <div className="skeleton-text w-4/5" />
+            </div>
+            <div className="card space-y-3">
+              <div className="skeleton-text w-24 h-3" />
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="flex gap-3">
+                  <div className="skeleton w-10 h-10 rounded-md flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="skeleton-text w-32" />
+                    <div className="skeleton-text w-24 h-3" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           <>
             {imgError && (
@@ -452,7 +489,7 @@ export default function ProfilePage() {
                       <textarea rows={3} value={form.bio} onChange={e => setForm({ ...form, bio: e.target.value })} className="input-field resize-none" placeholder="A short bio about yourself…" /></div>
                     <div className="flex gap-3 pt-1">
                       <button type="submit" disabled={saving} className="btn-primary text-sm py-2 px-5">{saving ? 'Saving…' : 'Save changes'}</button>
-                      <button type="button" onClick={() => setEditing(false)} className="text-sm py-2 px-3" style={{ color: 'var(--fg3)' }}>Cancel</button>
+                      <button type="button" onClick={() => setEditing(false)} className="btn-outline text-sm py-2 px-4">Cancel</button>
                     </div>
                   </form>
                 )}

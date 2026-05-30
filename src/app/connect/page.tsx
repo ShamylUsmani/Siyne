@@ -19,6 +19,19 @@ interface Person {
   photoURL?: string;
 }
 
+function SkeletonPerson() {
+  return (
+    <div className="card flex items-center gap-4">
+      <div className="skeleton w-12 h-12 rounded-full flex-shrink-0" />
+      <div className="flex-1 space-y-2">
+        <div className="skeleton-text w-28" />
+        <div className="skeleton-text w-40 h-3" />
+      </div>
+      <div className="skeleton w-16 h-8 rounded-lg flex-shrink-0" />
+    </div>
+  );
+}
+
 export default function ConnectPage() {
   const { user, loading } = useAuth();
   const router            = useRouter();
@@ -109,12 +122,16 @@ export default function ConnectPage() {
         </div>
 
         {fetching ? (
-          <p className="text-center py-12 text-sm" style={{ color: 'var(--fg4)' }}>Loading…</p>
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => <SkeletonPerson key={i} />)}
+          </div>
         ) : displayed.length === 0 ? (
-          <div className="text-center py-16" style={{ color: 'var(--fg4)' }}>
-            <p className="text-sm">
-              {tab === 'discover' ? "You're following everyone. Nice." : "You're not following anyone yet."}
-            </p>
+          <div className="card text-center py-16">
+            <svg className="w-12 h-12 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <p className="font-semibold mb-1" style={{ color: 'var(--fg2)' }}>No one to connect with yet</p>
+            <p className="text-sm" style={{ color: 'var(--fg4)' }}>Check back soon as more people join Siyne.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -143,7 +160,7 @@ export default function ConnectPage() {
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
                     <Link href={`/messages/${[user.uid, p.uid].sort().join('_')}`}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:text-white hover:border-white/40"
                       style={{ border: '1px solid var(--fg5)', color: 'var(--fg3)' }}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}

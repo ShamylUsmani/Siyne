@@ -8,6 +8,15 @@
 
 /* ── CSS theme variables ──────────────────────────────── */
 :root {
+  /* ── design tokens ── */
+  --brand:          linear-gradient(135deg, #B01E36 0%, #4A0818 100%);
+  --brand-tint:     rgba(176, 30, 54, 0.12);
+  --brand-border:   rgba(176, 30, 54, 0.25);
+  --radius-card:    0.75rem;
+  --shadow-card:    0 4px 24px rgba(0, 0, 0, 0.25);
+  --shadow-hover:   0 8px 32px rgba(0, 0, 0, 0.40);
+  --transition-base: 150ms ease;
+
   /* Foreground / text — all flip white→dark in light mode */
   --fg1: rgba(255,255,255,0.92);   /* headings / primary */
   --fg2: rgba(255,255,255,0.70);   /* body text */
@@ -115,6 +124,24 @@ body {
   [data-theme="light"] select.input-field option {
     background: #ffffff;
     color: rgba(15,15,15,0.90);
+  }
+
+  /* ── skeleton loader ── */
+  .skeleton {
+    @apply rounded-lg animate-pulse;
+    background: var(--fg5);
+  }
+  .skeleton-text {
+    @apply rounded animate-pulse h-4;
+    background: var(--fg5);
+  }
+
+  /* ── dropdown item hover ── */
+  .dropdown-item {
+    transition: background var(--transition-base);
+  }
+  .dropdown-item:hover {
+    background: var(--sur);
   }
 
   /* ── siyne logo gradient (same in both modes) ── */

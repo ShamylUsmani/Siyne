@@ -283,10 +283,8 @@ export default function Navbar() {
                 style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)', backdropFilter: 'blur(20px)', boxShadow: '0 12px 32px rgba(0,0,0,0.6)' }}>
                 {dropResults.map((u, i) => (
                   <button key={u.uid} onClick={() => handleDropClick(u.uid)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-                    style={{ borderTop: i > 0 ? '1px solid var(--sur)' : 'none' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--sur)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    className="dropdown-item w-full flex items-center gap-3 px-4 py-2.5 text-left"
+                    style={{ borderTop: i > 0 ? '1px solid var(--sur)' : 'none' }}>
                     <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
                       style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                       {u.name[0]?.toUpperCase() ?? '?'}
@@ -304,10 +302,8 @@ export default function Navbar() {
                 {compDropResults.map((c, i) => (
                   <button key={c.id}
                     onClick={() => { setShowDrop(false); setSearchQ(''); router.push(`/companies/${c.id}`); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-                    style={{ borderTop: (dropResults.length > 0 || i > 0) ? '1px solid var(--sur)' : 'none' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--sur)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    className="dropdown-item w-full flex items-center gap-3 px-4 py-2.5 text-left"
+                    style={{ borderTop: (dropResults.length > 0 || i > 0) ? '1px solid var(--sur)' : 'none' }}>
                     <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold overflow-hidden"
                       style={{ background: c.logoUrl ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                       {c.logoUrl
@@ -321,10 +317,8 @@ export default function Navbar() {
                   </button>
                 ))}
                 <button onClick={() => { setShowDrop(false); router.push(`/search?q=${encodeURIComponent(searchQ.trim())}`); }}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-left transition-colors"
-                  style={{ borderTop: '1px solid var(--sur)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--sur)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  className="dropdown-item w-full flex items-center gap-2 px-4 py-2.5 text-left"
+                  style={{ borderTop: '1px solid var(--sur)' }}>
                   <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--fg4)' }}
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -425,10 +419,8 @@ export default function Navbar() {
                         { label: 'Create a Company Page', href: '/companies/new' },
                       ] as const).map(({ label, href }) => (
                         <Link key={label} href={href} onClick={() => setShowProfile(false)}
-                          className="block px-4 py-2 text-sm transition-colors"
-                          style={{ color: 'var(--fg2)' }}
-                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--sur)'; e.currentTarget.style.color = 'var(--fg1)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--fg2)'; }}>
+                          className="dropdown-item block px-4 py-2 text-sm"
+                          style={{ color: 'var(--fg2)' }}>
                           {label}
                         </Link>
                       ))}
@@ -440,10 +432,8 @@ export default function Navbar() {
                         <div style={{ borderTop: '1px solid var(--sur)' }} />
                         <div className="py-1">
                           <Link href="/admin" onClick={() => setShowProfile(false)}
-                            className="block px-4 py-2 text-sm transition-colors"
-                            style={{ color: 'rgba(251,191,36,0.80)' }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(251,191,36,0.08)'; e.currentTarget.style.color = '#fbbf24'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(251,191,36,0.80)'; }}>
+                            className="dropdown-item block px-4 py-2 text-sm"
+                            style={{ color: 'rgba(251,191,36,0.80)' }}>
                             Admin Dashboard
                           </Link>
                         </div>
@@ -493,10 +483,8 @@ export default function Navbar() {
                     <div style={{ borderTop: '1px solid var(--sur)' }} />
                     <div className="py-1">
                       <button onClick={() => { setShowProfile(false); handleSignOut(); }}
-                        className="w-full text-left block px-4 py-2 text-sm transition-colors"
-                        style={{ color: '#f87171' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(248,113,113,0.08)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                        className="dropdown-item w-full text-left block px-4 py-2 text-sm"
+                        style={{ color: '#f87171' }}>
                         Sign Out
                       </button>
                     </div>
@@ -546,10 +534,8 @@ export default function Navbar() {
               style={{ background: 'var(--drop-bg)', border: '1px solid var(--fg5)', backdropFilter: 'blur(20px)', boxShadow: '0 12px 32px rgba(0,0,0,0.6)' }}>
               {dropResults.map((u, i) => (
                 <button key={u.uid} onClick={() => handleDropClick(u.uid)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-                  style={{ borderTop: i > 0 ? '1px solid var(--sur)' : 'none' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--sur)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  className="dropdown-item w-full flex items-center gap-3 px-4 py-2.5 text-left"
+                  style={{ borderTop: i > 0 ? '1px solid var(--sur)' : 'none' }}>
                   <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
                     style={{ background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                     {u.name[0]?.toUpperCase() ?? '?'}
@@ -567,10 +553,8 @@ export default function Navbar() {
               {compDropResults.map((c, i) => (
                 <button key={c.id}
                   onClick={() => { setShowDrop(false); setSearchQ(''); router.push(`/companies/${c.id}`); }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
-                  style={{ borderTop: (dropResults.length > 0 || i > 0) ? '1px solid var(--sur)' : 'none' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--sur)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  className="dropdown-item w-full flex items-center gap-3 px-4 py-2.5 text-left"
+                  style={{ borderTop: (dropResults.length > 0 || i > 0) ? '1px solid var(--sur)' : 'none' }}>
                   <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold overflow-hidden"
                     style={{ background: c.logoUrl ? 'transparent' : 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }}>
                     {c.logoUrl ? <img src={c.logoUrl} alt={c.name} className="w-full h-full object-cover" /> : c.name[0]?.toUpperCase() ?? '?'}

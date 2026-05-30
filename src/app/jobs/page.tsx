@@ -143,7 +143,7 @@ function FilterPill<T extends string>({
     <div className="flex gap-1.5 flex-wrap">
       {options.map(o => (
         <button key={o.value} onClick={() => onChange(o.value)}
-          className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all"
+          className="text-xs px-3 py-1.5 rounded-full font-medium transition-all"
           style={value === o.value
             ? { background: 'linear-gradient(135deg,#B01E36,#4A0818)', color: 'white' }
             : { background: 'var(--sur)', border: '1px solid var(--fg5)', color: 'var(--fg3)' }}>

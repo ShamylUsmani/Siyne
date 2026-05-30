@@ -335,7 +335,7 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                   {/* fill bar (shows after voting) */}
                   {hasVoted && (
                     <div className="absolute inset-0 rounded-lg transition-all"
-                      style={{ width: `${pct}%`, background: isMyVote ? 'rgba(176,30,54,0.18)' : 'rgba(255,255,255,0.06)' }} />
+                      style={{ width: `${pct}%`, background: isMyVote ? 'rgba(176,30,54,0.18)' : 'var(--sur)' }} />
                   )}
                   <div className="relative flex items-center justify-between px-3 py-2">
                     <span className="text-sm flex items-center gap-2" style={{ color: 'var(--fg1)' }}>
@@ -397,7 +397,7 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
       )}
 
       {/* action bar */}
-      <div className="flex items-center gap-1 pt-3 flex-wrap" style={{ borderTop: '1px solid var(--sur)' }}>
+      <div className="flex items-center gap-2 pt-3 flex-wrap" style={{ borderTop: '1px solid var(--sur)' }}>
 
         {/* reaction button + picker — hover on desktop, long-press on mobile */}
         <div className="relative"
@@ -513,10 +513,8 @@ export default function PostCard({ post, onDelete }: { post: Post; onDelete?: (i
                         ))}
                         <button
                           onClick={ev => openReactionPicker(ev, c.id)}
-                          className="text-xs transition-colors"
-                          style={{ color: 'var(--fg4)', touchAction: 'manipulation' }}
-                          onMouseEnter={e => (e.currentTarget.style.color = 'var(--fg2)')}
-                          onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg4)')}>
+                          className="text-xs transition-colors hover:text-white"
+                          style={{ color: 'var(--fg4)', touchAction: 'manipulation' }}>
                           React
                         </button>
                         <button onClick={() => { setReplyToId(c.id); setReplyToName(c.authorName); }}

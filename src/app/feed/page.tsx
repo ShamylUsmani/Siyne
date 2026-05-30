@@ -40,11 +40,35 @@ function timeAgo(s: number) {
   return `${Math.floor(h / 24)}d`;
 }
 
+function SkeletonPost() {
+  return (
+    <div className="card mb-4">
+      <div className="flex gap-3 mb-4">
+        <div className="skeleton w-10 h-10 rounded-full flex-shrink-0" />
+        <div className="flex-1 space-y-2 pt-1">
+          <div className="skeleton-text w-32" />
+          <div className="skeleton-text w-20 h-3" />
+        </div>
+      </div>
+      <div className="space-y-2 mb-4">
+        <div className="skeleton-text w-full" />
+        <div className="skeleton-text w-4/5" />
+        <div className="skeleton-text w-3/5" />
+      </div>
+      <div className="flex gap-2 pt-3" style={{ borderTop: '1px solid var(--sur)' }}>
+        <div className="skeleton-text w-16 h-7 rounded-lg" />
+        <div className="skeleton-text w-20 h-7 rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
 export default function FeedPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   const [posts, setPosts]         = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
   const [content, setContent]     = useState('');
   const [posting, setPosting]     = useState(false);
   const [jobTitle, setJobTitle]   = useState('');
@@ -139,14 +163,21 @@ export default function FeedPage() {
 
   /* user post subscription */
   useEffect(() => {
+    setPostsLoading(true);
     if (tab === 'all') {
       const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
-      return onSnapshot(q, snap => setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Post))));
+      return onSnapshot(q, snap => {
+        setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Post)));
+        setPostsLoading(false);
+      }, () => setPostsLoading(false));
     }
-    if (following.length === 0) { setPosts([]); return; }
+    if (following.length === 0) { setPosts([]); setPostsLoading(false); return; }
     const ids = following.slice(0, 30);
     const q = query(collection(db, 'posts'), where('uid', 'in', ids), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, snap => setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Post))));
+    return onSnapshot(q, snap => {
+      setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Post)));
+      setPostsLoading(false);
+    }, () => setPostsLoading(false));
   }, [tab, following]);
 
   /* company post subscription for Following tab */
@@ -426,10 +457,8 @@ export default function FeedPage() {
                       {/* Photo */}
                       <button onClick={() => postImgRef.current?.click()} disabled={uploadingImg || !!postVideo}
                         title="Add photo"
-                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors"
-                        style={{ color: 'var(--fg3)', border: '1px solid var(--fg5)' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = 'white')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg3)')}>
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors hover:text-white hover:border-white/40"
+                        style={{ color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
                         {uploadingImg
                           ? <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
                           : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -442,10 +471,8 @@ export default function FeedPage() {
                       {/* Video */}
                       <button onClick={() => postVideoRef.current?.click()} disabled={uploadingVideo || !!postMedia}
                         title="Add video"
-                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors"
-                        style={{ color: 'var(--fg3)', border: '1px solid var(--fg5)' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = 'white')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg3)')}>
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors hover:text-white hover:border-white/40"
+                        style={{ color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
                         {uploadingVideo
                           ? <span className="text-[10px]">{videoProgress}%</span>
                           : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -458,10 +485,8 @@ export default function FeedPage() {
                       {/* Camera */}
                       <button onClick={openCamera}
                         title="Use camera"
-                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors"
-                        style={{ color: 'var(--fg3)', border: '1px solid var(--fg5)' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = 'white')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg3)')}>
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors hover:text-white hover:border-white/40"
+                        style={{ color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -472,24 +497,18 @@ export default function FeedPage() {
                       {/* GIF */}
                       <button onClick={() => setShowGifPicker(true)}
                         title="Add GIF"
-                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors font-bold"
-                        style={{ color: 'var(--fg3)', border: '1px solid var(--fg5)' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = 'white')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--fg3)')}>
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors font-bold hover:text-white hover:border-white/40"
+                        style={{ color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
                         GIF
                       </button>
 
                       {/* Poll */}
                       <button onClick={() => setShowPoll(v => !v)}
                         title="Create poll"
-                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors"
-                        style={{
-                          color: showPoll ? '#B01E36' : 'var(--fg3)',
-                          border: showPoll ? '1px solid #B01E36' : '1px solid var(--fg5)',
-                          background: showPoll ? 'rgba(176,30,54,0.08)' : 'transparent',
-                        }}
-                        onMouseEnter={e => { if (!showPoll) e.currentTarget.style.color = 'white'; }}
-                        onMouseLeave={e => { if (!showPoll) e.currentTarget.style.color = 'var(--fg3)'; }}>
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors hover:text-white"
+                        style={showPoll ? {
+                          color: '#B01E36', border: '1px solid #B01E36', background: 'rgba(176,30,54,0.08)'
+                        } : { color: 'var(--fg3)', border: '1px solid var(--fg5)' }}>
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
@@ -518,10 +537,17 @@ export default function FeedPage() {
 
             {/* For You tab */}
             {tab === 'all' && (
-              isEmpty ? (
-                <div className="text-center py-20" style={{ color: 'var(--fg4)' }}>
-                  <p className="text-lg font-medium mb-1">No posts yet.</p>
-                  <p className="text-sm">Be the first to share something.</p>
+              postsLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => <SkeletonPost key={i} />)}
+                </div>
+              ) : isEmpty ? (
+                <div className="card text-center py-16">
+                  <svg className="w-12 h-12 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 12h6m-6-4h.01" />
+                  </svg>
+                  <p className="font-semibold mb-1" style={{ color: 'var(--fg2)' }}>Nothing here yet</p>
+                  <p className="text-sm" style={{ color: 'var(--fg4)' }}>Be the first to post something.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -533,15 +559,13 @@ export default function FeedPage() {
             {/* Following tab */}
             {tab === 'following' && (
               isEmpty ? (
-                <div className="text-center py-20" style={{ color: 'var(--fg4)' }}>
-                  <p className="text-lg font-medium mb-1">Nothing here yet.</p>
-                  <p className="text-sm">
-                    Follow people on the{' '}
-                    <Link href="/connect" className="hover:underline" style={{ color: '#D63A52' }}>Connect</Link>
-                    {' '}page or{' '}
-                    <Link href="/search" className="hover:underline" style={{ color: '#D63A52' }}>companies</Link>
-                    {' '}to see their posts here.
-                  </p>
+                <div className="card text-center py-16">
+                  <svg className="w-12 h-12 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <p className="font-semibold mb-1" style={{ color: 'var(--fg2)' }}>No posts from people you follow</p>
+                  <p className="text-sm mb-4" style={{ color: 'var(--fg4)' }}>Follow people and companies to see their updates here.</p>
+                  <a href="/connect" className="btn-primary text-sm py-2 px-5 inline-block">Find people to follow</a>
                 </div>
               ) : (
                 <div className="space-y-4">

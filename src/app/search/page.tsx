@@ -40,6 +40,7 @@ function SearchResults() {
   const [tab, setTab]           = useState<FilterTab>('all');
   const [busy, setBusy]         = useState<string | null>(null);
   const [compBusy, setCompBusy] = useState<string | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => { if (!loading && !user) router.replace('/auth'); }, [user, loading, router]);
 
@@ -49,6 +50,7 @@ function SearchResults() {
 
   useEffect(() => {
     if (!user) return;
+    setSearchLoading(true);
     Promise.all([
       getDocs(collection(db, 'users')),
       getDoc(doc(db, 'users', user.uid)),
@@ -70,7 +72,8 @@ function SearchResults() {
       const fm: CompanyFollowMap = {};
       followSnap.docs.forEach(d => { fm[d.data().companyId] = true; });
       setCompFollowing(fm);
-    });
+      setSearchLoading(false);
+    }).catch(() => setSearchLoading(false));
   }, [user]);
 
   async function toggleFollow(targetUid: string) {
@@ -187,7 +190,19 @@ function SearchResults() {
         )}
 
         {/* results */}
-        {filtered.length === 0 && filteredCompanies.length === 0 ? (
+        {searchLoading ? (
+          <div className="space-y-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="card flex items-center gap-4">
+                <div className="skeleton w-10 h-10 rounded-full flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="skeleton-text w-32" />
+                  <div className="skeleton-text w-48 h-3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 && filteredCompanies.length === 0 ? (
           <div className="text-center py-16" style={{ color: 'var(--fg4)' }}>
             <p className="text-sm">{lc ? `No results for "${q}"` : 'Start typing to search.'}</p>
           </div>
@@ -220,7 +235,7 @@ function SearchResults() {
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
                   <Link href={`/messages/${[user.uid, u.uid].sort().join('_')}`}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:text-white hover:border-white/40"
                     style={{ border: '1px solid var(--fg5)', color: 'var(--fg3)' }}>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}

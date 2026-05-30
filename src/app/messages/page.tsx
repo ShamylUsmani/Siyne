@@ -65,6 +65,7 @@ export default function MessagesPage() {
   const router = useRouter();
   const [convs, setConvs] = useState<Conv[]>([]);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
+  const [convsLoading, setConvsLoading] = useState(true);
 
   useEffect(() => { if (!loading && !user) router.replace('/auth'); }, [user, loading, router]);
 
@@ -79,6 +80,7 @@ export default function MessagesPage() {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Conv));
       list.sort((a, b) => (b.lastAt?.seconds ?? 0) - (a.lastAt?.seconds ?? 0));
       setConvs(list);
+      setConvsLoading(false);
     });
   }, [user]);
 
@@ -128,7 +130,22 @@ export default function MessagesPage() {
           </div>
 
           {/* conversation list */}
-          {convs.length === 0 ? (
+          {convsLoading ? (
+            <div>
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: '1px solid var(--sur)' }}>
+                  <div className="skeleton w-12 h-12 rounded-full flex-shrink-0" />
+                  <div className="w-28 flex-shrink-0 space-y-1.5">
+                    <div className="skeleton-text w-20" />
+                    <div className="skeleton-text w-12 h-3" />
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <div className="skeleton-text w-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : convs.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center py-16 px-4" style={{ color: 'var(--fg4)' }}>
               <svg className="w-10 h-10 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
