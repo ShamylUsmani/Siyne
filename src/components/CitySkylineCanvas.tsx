@@ -4,19 +4,27 @@ import { useEffect, useRef } from 'react';
 function rand(a: number, b: number) { return a + Math.random() * (b - a); }
 function randInt(a: number, b: number) { return Math.floor(rand(a, b + 1)); }
 
-interface StarDot { x: number; y: number; r: number; phase: number; }
-interface BackBuilding { x: number; w: number; h: number; wins: { r: number; c: number; on: boolean }[]; }
-interface NeonSign { x: number; y: number; w: number; h: number; color: string; phase: number; }
-interface MidBuilding { x: number; w: number; h: number; wins: { r: number; c: number; on: boolean; blue: boolean }[]; neon: NeonSign | null; }
-interface FrontBuilding {
-  x: number; w: number; h: number;
-  wins: { r: number; c: number; on: boolean }[];
-  spireH: number; stepped: boolean; broadcast: boolean;
-  antennaOn: boolean; antennaTimer: number; antennaInterval: number;
-  neonFace: boolean; neonFaceColor: string; neonFacePhase: number;
+interface AerialBuilding {
+  x: number; y: number; w: number; h: number;
+  height: number;       // 1-5 floors
+  roofCol: string;
+  isLit: boolean;
+  hasGarden: boolean;
+  hasHelipad: boolean;
+  hasWaterTower: boolean;
+  hasAtrium: boolean;
 }
-interface ShimmerLine { x: number; y: number; len: number; vx: number; }
-interface ReflectionStreak { cx: number; color: string; }
+
+interface AerialCar {
+  x: number; y: number; vx: number; vy: number; col: string; isHead: boolean;
+  streetHoriz: boolean;  // driving on horizontal or vertical street
+}
+
+// Street grid data
+interface Street {
+  pos: number;       // x for vertical, y for horizontal
+  horiz: boolean;
+}
 
 export default function CitySkylineCanvas() {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -25,439 +33,360 @@ export default function CitySkylineCanvas() {
     const canvas = ref.current; if (!canvas) return;
     const ctx = canvas.getContext('2d')!;
     let W = 0, H = 0, raf = 0, frame = 0;
-    let skylineY = 0, waterY = 0;
 
-    const stars: StarDot[] = [];
-    const backBuildings: BackBuilding[] = [];
-    const midBuildings: MidBuilding[] = [];
-    const frontBuildings: FrontBuilding[] = [];
-    const shimmerLines: ShimmerLine[] = [];
-    const reflectionStreaks: ReflectionStreak[] = [];
+    const buildings: AerialBuilding[] = [];
+    const aerialCars: AerialCar[] = [];
+    const streets: Street[] = [];
 
+    // Park and river data
+    let parkX = 0, parkY = 0, parkW = 0, parkH = 0;
+    let riverX1 = 0, riverY1 = 0, riverX2 = 0, riverY2 = 0;
+    let riverWidth = 0;
+
+    const ROOF_COLS = ['#1e2830', '#242e3a', '#2a3444', '#303c4e', '#384458'];
     let flickerTimer = 0;
-
-    function makeBackWins(w: number, h: number) {
-      const rows = Math.floor(h / 18), cols = Math.floor(w / 14);
-      const arr: { r: number; c: number; on: boolean }[] = [];
-      for (let r = 0; r < rows; r++)
-        for (let c = 0; c < cols; c++)
-          arr.push({ r, c, on: Math.random() > 0.72 });
-      return arr;
-    }
-
-    function makeMidWins(w: number, h: number) {
-      const rows = Math.floor(h / 15), cols = Math.floor(w / 12);
-      const arr: { r: number; c: number; on: boolean; blue: boolean }[] = [];
-      for (let r = 0; r < rows; r++)
-        for (let c = 0; c < cols; c++)
-          arr.push({ r, c, on: Math.random() > 0.60, blue: Math.random() > 0.65 });
-      return arr;
-    }
-
-    function makeFrontWins(w: number, h: number) {
-      const rows = Math.floor(h / 13), cols = Math.floor(w / 10);
-      const arr: { r: number; c: number; on: boolean }[] = [];
-      for (let r = 0; r < rows; r++)
-        for (let c = 0; c < cols; c++)
-          arr.push({ r, c, on: Math.random() > 0.40 });
-      return arr;
-    }
 
     function init() {
       if (!canvas) return;
       W = canvas.offsetWidth || 1200; H = canvas.offsetHeight || 700;
       canvas.width = W; canvas.height = H;
-      skylineY = H * 0.60; waterY = H * 0.78;
-      stars.length = 0; backBuildings.length = 0; midBuildings.length = 0;
-      frontBuildings.length = 0; shimmerLines.length = 0; reflectionStreaks.length = 0;
       frame = 0; flickerTimer = 0;
+      buildings.length = 0; aerialCars.length = 0; streets.length = 0;
 
-      // Stars
-      for (let i = 0; i < 70; i++) {
-        stars.push({
-          x: rand(0, W), y: rand(H * 0.02, skylineY * 0.75),
-          r: rand(0.4, 2.0), phase: rand(0, Math.PI * 2),
+      const mobile = W < 600;
+
+      // Generate street grid with irregular spacing
+      // Horizontal streets
+      let pos = 0;
+      while (pos < H) {
+        const gap = 80 + rand(0, 40);
+        pos += gap;
+        streets.push({ pos, horiz: true });
+      }
+      // Vertical streets
+      pos = 0;
+      while (pos < W) {
+        const gap = 80 + rand(0, 40);
+        pos += gap;
+        streets.push({ pos, horiz: false });
+      }
+
+      // Sort streets
+      const hStreets = streets.filter(s => s.horiz).map(s => s.pos);
+      const vStreets = streets.filter(s => !s.horiz).map(s => s.pos);
+
+      // Place park in one block
+      const parkBlockH = randInt(0, hStreets.length - 2);
+      const parkBlockV = randInt(0, vStreets.length - 2);
+      const pH0 = parkBlockH === 0 ? 0 : hStreets[parkBlockH - 1];
+      const pH1 = hStreets[parkBlockH];
+      const pV0 = parkBlockV === 0 ? 0 : vStreets[parkBlockV - 1];
+      const pV1 = vStreets[parkBlockV];
+      parkX = pV0 + 12; parkY = pH0 + 12;
+      parkW = pV1 - pV0 - 24; parkH = pH1 - pH0 - 24;
+
+      // River diagonally across canvas
+      riverX1 = W * 0.15; riverY1 = H * 0.08;
+      riverX2 = W * 0.62; riverY2 = H * 0.92;
+      riverWidth = 16 + rand(0, 8);
+
+      // Generate buildings to fill blocks
+      const bCount = mobile ? 40 : 70;
+      let attempts = 0;
+      while (buildings.length < bCount && attempts < 500) {
+        attempts++;
+        // Pick a random block between streets
+        const hIdx = randInt(0, hStreets.length - 1);
+        const vIdx = randInt(0, vStreets.length - 1);
+        const y0 = hIdx === 0 ? 0 : hStreets[hIdx - 1];
+        const y1 = hStreets[hIdx];
+        const x0 = vIdx === 0 ? 0 : vStreets[vIdx - 1];
+        const x1 = vStreets[vIdx];
+
+        const blockW = x1 - x0;
+        const blockH = y1 - y0;
+        if (blockW < 35 || blockH < 35) continue;
+
+        // Margin inside block
+        const margin = 10;
+        const bx = x0 + margin + rand(0, Math.max(0, blockW * 0.15));
+        const by = y0 + margin + rand(0, Math.max(0, blockH * 0.15));
+        const bw = Math.min(blockW - margin * 2 - rand(0, blockW * 0.15), 120);
+        const bh = Math.min(blockH - margin * 2 - rand(0, blockH * 0.15), 100);
+
+        if (bw < 30 || bh < 30) continue;
+
+        // Skip if overlaps park
+        const padded = 5;
+        if (bx < parkX + parkW + padded && bx + bw > parkX - padded &&
+            by < parkY + parkH + padded && by + bh > parkY - padded) continue;
+
+        const heightLevel = randInt(1, 5);
+        buildings.push({
+          x: bx, y: by, w: bw, h: bh,
+          height: heightLevel,
+          roofCol: ROOF_COLS[heightLevel - 1],
+          isLit: Math.random() < 0.20,
+          hasGarden: Math.random() < 0.12,
+          hasHelipad: Math.random() < 0.04,
+          hasWaterTower: heightLevel >= 4 && Math.random() < 0.25,
+          hasAtrium: Math.random() < 0.10,
         });
       }
 
-      // Back layer (15-20 buildings)
-      let bx = 0;
-      while (bx < W + 30) {
-        const bw = rand(22, 55);
-        const bh = rand(skylineY * 0.12, skylineY * 0.58);
-        backBuildings.push({ x: bx, w: bw, h: bh, wins: makeBackWins(bw, bh) });
-        bx += bw + rand(1, 5);
-      }
-
-      // Mid layer (10-12 buildings)
-      bx = rand(-15, 0);
-      while (bx < W + 30) {
-        const bw = rand(38, 75);
-        const bh = rand(skylineY * 0.28, skylineY * 0.78);
-        const hasNeon = Math.random() > 0.55;
-        const neonColors = ['rgba(255,50,150,0.6)', 'rgba(50,150,255,0.5)', 'rgba(180,50,255,0.55)', 'rgba(50,220,180,0.5)'];
-        const neon: NeonSign | null = hasNeon ? {
-          x: bx + bw * rand(0.1, 0.5),
-          y: skylineY - bh * rand(0.35, 0.60),
-          w: bw * rand(0.3, 0.55),
-          h: 6 + rand(0, 4),
-          color: neonColors[randInt(0, neonColors.length - 1)],
-          phase: rand(0, Math.PI * 2),
-        } : null;
-        midBuildings.push({ x: bx, w: bw, h: bh, wins: makeMidWins(bw, bh), neon });
-        bx += bw + rand(2, 8);
-      }
-
-      // Front layer (6-8 tall landmark buildings)
-      const frontCount = randInt(6, 8);
-      const segW = W / frontCount;
-      for (let i = 0; i < frontCount; i++) {
-        const bw = rand(segW * 0.50, segW * 0.82);
-        const bh = rand(skylineY * 0.50, skylineY * 0.96);
-        const bxPos = i * segW + (segW - bw) / 2 + rand(-8, 8);
-        const neonFaceColors = ['#c830ff', '#30ffe8', '#ff30a0'];
-        frontBuildings.push({
-          x: bxPos, w: bw, h: bh,
-          wins: makeFrontWins(bw, bh),
-          spireH: rand(22, 60),
-          stepped: Math.random() > 0.55,
-          broadcast: i === Math.floor(frontCount / 2),
-          antennaOn: false,
-          antennaTimer: 0,
-          antennaInterval: randInt(60, 90),
-          neonFace: Math.random() > 0.6,
-          neonFaceColor: neonFaceColors[randInt(0, neonFaceColors.length - 1)],
-          neonFacePhase: rand(0, Math.PI * 2),
-        });
-      }
-
-      // Reflection streaks
-      for (const b of frontBuildings) {
-        if (b.neonFace) {
-          reflectionStreaks.push({ cx: b.x + b.w / 2, color: b.neonFaceColor });
-        }
-      }
-      reflectionStreaks.push({ cx: W * 0.25, color: 'rgba(255,50,150,0.15)' });
-      reflectionStreaks.push({ cx: W * 0.60, color: 'rgba(120,50,255,0.12)' });
-      reflectionStreaks.push({ cx: W * 0.80, color: 'rgba(50,150,255,0.10)' });
-
-      // Shimmer lines
-      for (let i = 0; i < 8; i++) {
-        shimmerLines.push({
-          x: rand(0, W), y: waterY + rand(5, (H - waterY) * 0.9),
-          len: rand(25, 90), vx: rand(-0.25, 0.25),
+      // Cars on streets
+      const carCount = mobile ? 4 : 6;
+      for (let i = 0; i < carCount; i++) {
+        const horiz = Math.random() > 0.5;
+        const streetList = horiz ? hStreets : vStreets;
+        if (streetList.length === 0) continue;
+        const sPos = streetList[randInt(0, streetList.length - 1)];
+        const isHead = Math.random() > 0.5;
+        const speed = rand(0.5, 1.5) * (Math.random() > 0.5 ? 1 : -1);
+        aerialCars.push({
+          x: horiz ? rand(0, W) : sPos + rand(-4, 4),
+          y: horiz ? sPos + rand(-4, 4) : rand(0, H),
+          vx: horiz ? speed : 0,
+          vy: horiz ? 0 : speed,
+          col: isHead ? 'rgba(255,255,220,0.9)' : 'rgba(220,50,50,0.9)',
+          isHead,
+          streetHoriz: horiz,
         });
       }
     }
 
-    // ── DRAW ──────────────────────────────────────────────────
+    function drawStreetGrid() {
+      // Base dark city colour
+      ctx.fillStyle = '#0a0c10';
+      ctx.fillRect(0, 0, W, H);
 
-    function drawSky() {
-      const g = ctx.createLinearGradient(0, 0, 0, skylineY);
-      g.addColorStop(0,    '#02020e');
-      g.addColorStop(0.18, '#080418');
-      g.addColorStop(0.40, '#180830');
-      g.addColorStop(0.65, '#2a1050');
-      g.addColorStop(1,    '#401870');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, W, skylineY);
-
-      // Moon (upper-right)
-      const mx = W * 0.82, my = H * 0.10, mr = 22;
-      // Soft glow behind moon
-      const moonGlow = ctx.createRadialGradient(mx, my, mr, mx, my, mr * 4.5);
-      moonGlow.addColorStop(0, 'rgba(220,220,240,0.18)');
-      moonGlow.addColorStop(0.4, 'rgba(200,200,230,0.07)');
-      moonGlow.addColorStop(1, 'transparent');
-      ctx.fillStyle = moonGlow;
-      ctx.beginPath(); ctx.arc(mx, my, mr * 4.5, 0, Math.PI * 2); ctx.fill();
-      // Moon disc
-      const moonG = ctx.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, mr * 0.1, mx, my, mr);
-      moonG.addColorStop(0, '#f4f4ff');
-      moonG.addColorStop(0.5, '#e8e8f0');
-      moonG.addColorStop(1, '#c8c8d8');
-      ctx.fillStyle = moonG;
-      ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
-    }
-
-    function drawStars() {
-      for (const s of stars) {
-        s.phase += 0.018;
-        const alpha = 0.45 + Math.sin(s.phase) * 0.45;
-        ctx.globalAlpha = alpha * 0.92;
-        if (s.r > 1.5) ctx.fillStyle = '#f8f8ff';
-        else if (s.r > 1.0) ctx.fillStyle = '#d8e0ff';
-        else ctx.fillStyle = '#a8b8ff';
-        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    function drawBackBuildings() {
-      for (const b of backBuildings) {
-        const by = skylineY - b.h;
-        ctx.fillStyle = '#0a0618';
-        ctx.fillRect(b.x, by, b.w, b.h);
-        for (const w of b.wins) {
-          const wx = b.x + w.c * 14 + 3;
-          const wy = by + w.r * 18 + 5;
-          if (wx + 6 > b.x + b.w || wy + 7 > skylineY) continue;
-          if (!w.on) continue;
-          ctx.fillStyle = 'rgba(255,230,100,0.6)';
-          ctx.fillRect(wx, wy, 6, 7);
-        }
-      }
-    }
-
-    function drawMidBuildings() {
-      for (const b of midBuildings) {
-        const by = skylineY - b.h;
-
-        // Building body
-        ctx.fillStyle = '#0e0a22';
-        ctx.fillRect(b.x, by, b.w, b.h);
-
-        // Illuminated top floors
-        if (Math.random() > 0.97) {
-          const topG = ctx.createLinearGradient(0, by, 0, by + b.h * 0.20);
-          topG.addColorStop(0, 'rgba(120,60,255,0.12)');
-          topG.addColorStop(1, 'transparent');
-          ctx.fillStyle = topG;
-          ctx.fillRect(b.x, by, b.w, b.h * 0.20);
-        }
-
-        // Windows
-        for (const w of b.wins) {
-          const wx = b.x + w.c * 12 + 3;
-          const wy = by + w.r * 15 + 4;
-          if (wx + 7 > b.x + b.w || wy + 8 > skylineY) continue;
-          if (!w.on) continue;
-          ctx.fillStyle = w.blue
-            ? 'rgba(180,210,255,0.75)'
-            : 'rgba(255,220,100,0.70)';
-          ctx.fillRect(wx, wy, 7, 8);
-        }
-
-        // Neon sign
-        if (b.neon) {
-          b.neon.phase += 0.012;
-          const pulse = 0.85 + Math.sin(b.neon.phase) * 0.15;
-          ctx.globalAlpha = pulse;
-          ctx.fillStyle = b.neon.color;
-          ctx.fillRect(b.neon.x, b.neon.y, b.neon.w, b.neon.h);
-          // Glow around neon
-          const ng = ctx.createLinearGradient(b.neon.x, b.neon.y - 4, b.neon.x, b.neon.y + b.neon.h + 4);
-          ng.addColorStop(0, 'transparent');
-          ng.addColorStop(0.5, b.neon.color.replace('0.6', '0.2').replace('0.5', '0.15').replace('0.55', '0.18'));
-          ng.addColorStop(1, 'transparent');
-          ctx.fillStyle = ng;
-          ctx.fillRect(b.neon.x - 4, b.neon.y - 5, b.neon.w + 8, b.neon.h + 10);
-          ctx.globalAlpha = 1;
-        }
-      }
-    }
-
-    function drawFrontBuildings() {
-      for (const b of frontBuildings) {
-        const by = skylineY - b.h;
-        const spireTopY = by - b.spireH;
-
-        // Building body (stepped or plain)
-        ctx.fillStyle = '#06040e';
-        if (b.stepped) {
-          ctx.fillRect(b.x, by + b.h * 0.22, b.w, b.h * 0.78);
-          ctx.fillRect(b.x + b.w * 0.10, by + b.h * 0.10, b.w * 0.80, b.h * 0.12);
-          ctx.fillRect(b.x + b.w * 0.22, by, b.w * 0.56, b.h * 0.10);
-        } else {
-          // Taper at top for some
-          ctx.beginPath();
-          ctx.moveTo(b.x, skylineY);
-          ctx.lineTo(b.x, by + b.h * 0.15);
-          ctx.lineTo(b.x + b.w * 0.05, by);
-          ctx.lineTo(b.x + b.w * 0.95, by);
-          ctx.lineTo(b.x + b.w, by + b.h * 0.15);
-          ctx.lineTo(b.x + b.w, skylineY);
-          ctx.closePath();
-          ctx.fill();
-        }
-
-        // Neon face illumination on upper section
-        if (b.neonFace) {
-          b.neonFacePhase += 0.008;
-          const pulse = 0.85 + Math.sin(b.neonFacePhase) * 0.12;
-          const col = b.neonFaceColor;
-          const faceG = ctx.createLinearGradient(b.x, by, b.x + b.w, by);
-          faceG.addColorStop(0, 'transparent');
-          faceG.addColorStop(0.3, col.replace(')', `,${0.18 * pulse})`).replace('rgba(', 'rgba('));
-          faceG.addColorStop(0.7, col.replace(')', `,${0.22 * pulse})`).replace('rgba(', 'rgba('));
-          faceG.addColorStop(1, 'transparent');
-          ctx.globalAlpha = pulse;
-          ctx.fillStyle = faceG;
-          ctx.fillRect(b.x, by, b.w, b.h * 0.35);
-          ctx.globalAlpha = 1;
-
-          // Edge glow lines
-          ctx.strokeStyle = col;
-          ctx.lineWidth = 1;
-          ctx.globalAlpha = 0.35 * pulse;
-          ctx.strokeRect(b.x + 1, by + 1, b.w - 2, b.h * 0.34);
-          ctx.globalAlpha = 1;
-        }
-
-        // Spire
-        ctx.fillStyle = '#04030a';
-        if (b.broadcast) {
-          // Broadcast tower — lattice-style
-          ctx.beginPath();
-          ctx.moveTo(b.x + b.w * 0.5 - 4, by);
-          ctx.lineTo(b.x + b.w * 0.5 - 2, by - b.spireH * 0.5);
-          ctx.lineTo(b.x + b.w * 0.5, by - b.spireH);
-          ctx.lineTo(b.x + b.w * 0.5 + 2, by - b.spireH * 0.5);
-          ctx.lineTo(b.x + b.w * 0.5 + 4, by);
-          ctx.closePath();
-          ctx.fill();
-          // Crossbars
-          ctx.strokeStyle = '#04030a';
-          ctx.lineWidth = 2;
-          const steps = 4;
-          for (let si = 1; si < steps; si++) {
-            const t = si / steps;
-            const sw = 4 * (1 - t * 0.7);
-            const sy2 = by - b.spireH * t;
-            ctx.beginPath();
-            ctx.moveTo(b.x + b.w * 0.5 - sw, sy2);
-            ctx.lineTo(b.x + b.w * 0.5 + sw, sy2);
-            ctx.stroke();
-          }
-        } else {
-          ctx.beginPath();
-          ctx.moveTo(b.x + b.w * 0.5 - 3, by);
-          ctx.lineTo(b.x + b.w * 0.5, spireTopY);
-          ctx.lineTo(b.x + b.w * 0.5 + 3, by);
-          ctx.fill();
-        }
-
-        // Aircraft warning light
-        b.antennaTimer++;
-        if (b.antennaTimer >= b.antennaInterval) {
-          b.antennaOn = !b.antennaOn;
-          b.antennaTimer = 0;
-          b.antennaInterval = randInt(60, 90);
-        }
-        if (b.antennaOn) {
-          const tipX = b.x + b.w * 0.5;
-          const tipY = spireTopY;
-          const ag = ctx.createRadialGradient(tipX, tipY, 0, tipX, tipY, 7);
-          ag.addColorStop(0, 'rgba(255,40,40,0.95)');
-          ag.addColorStop(0.4, 'rgba(255,30,30,0.4)');
-          ag.addColorStop(1, 'transparent');
-          ctx.fillStyle = ag;
-          ctx.beginPath(); ctx.arc(tipX, tipY, 7, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#ff2020';
-          ctx.beginPath(); ctx.arc(tipX, tipY, 2, 0, Math.PI * 2); ctx.fill();
-        }
-
-        // Windows grid
-        for (const w of b.wins) {
-          const wx = b.x + w.c * 10 + 3;
-          const wy = by + w.r * 13 + 4;
-          if (wx + 5 > b.x + b.w || wy + 6 > skylineY) continue;
-          if (!w.on) continue;
-          ctx.fillStyle = 'rgba(255,220,100,0.85)';
-          ctx.fillRect(wx, wy, 5, 6);
-        }
-      }
-    }
-
-    function drawHorizonGlow() {
-      const glow = ctx.createLinearGradient(0, skylineY - H * 0.08, 0, skylineY + H * 0.04);
-      glow.addColorStop(0, 'transparent');
-      glow.addColorStop(0.5, 'rgba(80,40,180,0.25)');
-      glow.addColorStop(1, 'transparent');
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, skylineY - H * 0.08, W, H * 0.12);
-    }
-
-    function drawGroundStrip() {
-      ctx.fillStyle = '#030210';
-      ctx.fillRect(0, skylineY, W, waterY - skylineY);
-    }
-
-    function drawWater() {
-      // Dark water
-      const water = ctx.createLinearGradient(0, waterY, 0, H);
-      water.addColorStop(0, '#070218');
-      water.addColorStop(0.4, '#040110');
-      water.addColorStop(1, '#020008');
-      ctx.fillStyle = water;
-      ctx.fillRect(0, waterY, W, H - waterY);
-
-      // Neon reflections — tapering streaks
-      for (const r of reflectionStreaks) {
-        const maxW = 20;
-        const rg = ctx.createLinearGradient(r.cx - maxW, waterY, r.cx + maxW, waterY);
-        rg.addColorStop(0, 'transparent');
-        rg.addColorStop(0.5, r.color);
-        rg.addColorStop(1, 'transparent');
-        ctx.fillStyle = rg;
-
-        // Taper: narrow at top (waterY), wider at bottom
+      // Street lines (slightly lighter than background)
+      ctx.strokeStyle = '#12161e';
+      ctx.lineWidth = 2;
+      for (const s of streets) {
         ctx.beginPath();
-        ctx.moveTo(r.cx - 3, waterY);
-        ctx.lineTo(r.cx + 3, waterY);
-        ctx.lineTo(r.cx + maxW, H);
-        ctx.lineTo(r.cx - maxW, H);
-        ctx.closePath();
-        ctx.fillStyle = rg;
+        if (s.horiz) {
+          ctx.moveTo(0, s.pos); ctx.lineTo(W, s.pos);
+        } else {
+          ctx.moveTo(s.pos, 0); ctx.lineTo(s.pos, H);
+        }
+        ctx.stroke();
+      }
+
+      // Pavement/sidewalk strips — slightly lighter borders
+      ctx.strokeStyle = '#161a22';
+      ctx.lineWidth = 8;
+      for (const s of streets) {
+        ctx.beginPath();
+        if (s.horiz) {
+          ctx.moveTo(0, s.pos); ctx.lineTo(W, s.pos);
+        } else {
+          ctx.moveTo(s.pos, 0); ctx.lineTo(s.pos, H);
+        }
+        ctx.stroke();
+      }
+    }
+
+    function drawPark() {
+      if (parkW <= 0 || parkH <= 0) return;
+      // Dark green park
+      ctx.fillStyle = 'rgba(30,80,20,0.7)';
+      ctx.beginPath();
+      ctx.roundRect(parkX, parkY, parkW, parkH, 6);
+      ctx.fill();
+      // Path through park
+      ctx.strokeStyle = 'rgba(100,80,40,0.5)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(parkX + parkW * 0.2, parkY + parkH * 0.5);
+      ctx.quadraticCurveTo(parkX + parkW * 0.5, parkY + parkH * 0.3, parkX + parkW * 0.8, parkY + parkH * 0.5);
+      ctx.stroke();
+      // Trees in park (viewed from above)
+      for (let i = 0; i < 6; i++) {
+        const tx = parkX + rand(parkW * 0.1, parkW * 0.9);
+        const ty = parkY + rand(parkH * 0.1, parkH * 0.9);
+        const tr = rand(4, 9);
+        const tg = ctx.createRadialGradient(tx - tr * 0.2, ty - tr * 0.2, 0, tx, ty, tr);
+        tg.addColorStop(0, 'rgba(50,140,30,0.9)');
+        tg.addColorStop(1, 'rgba(20,70,10,0.6)');
+        ctx.fillStyle = tg;
+        ctx.beginPath(); ctx.arc(tx, ty, tr, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    function drawRiver() {
+      // River as a thick diagonal line with bezier slight bend
+      const midX = (riverX1 + riverX2) / 2 + rand(-20, 20);
+      const midY = (riverY1 + riverY2) / 2 + rand(-20, 20);
+
+      // River base
+      ctx.strokeStyle = '#0a1828';
+      ctx.lineWidth = riverWidth;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(riverX1, riverY1);
+      ctx.quadraticCurveTo(midX, midY, riverX2, riverY2);
+      ctx.stroke();
+
+      // Subtle shimmer
+      ctx.strokeStyle = 'rgba(20,50,100,0.3)';
+      ctx.lineWidth = riverWidth * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(riverX1 + 3, riverY1 + 3);
+      ctx.quadraticCurveTo(midX + 2, midY + 2, riverX2 + 3, riverY2 + 3);
+      ctx.stroke();
+    }
+
+    function drawBuildings() {
+      for (const b of buildings) {
+        const shadowLen = b.height * 8;
+
+        // Drop shadow (South-East offset = height indicator)
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath();
+        ctx.roundRect(b.x + shadowLen, b.y + shadowLen, b.w, b.h, 2);
+        ctx.fill();
+
+        // Roof base colour (brighter for taller buildings)
+        ctx.fillStyle = b.roofCol;
+        if (b.hasGarden) {
+          ctx.fillStyle = 'rgba(40,120,40,0.5)';
+        }
+        ctx.beginPath();
+        ctx.roundRect(b.x, b.y, b.w, b.h, 2);
+        ctx.fill();
+
+        // Non-garden rooftop
+        if (!b.hasGarden) {
+          ctx.fillStyle = b.roofCol;
+          ctx.beginPath();
+          ctx.roundRect(b.x, b.y, b.w, b.h, 2);
+          ctx.fill();
+        }
+
+        // Lit building — warm roof glow
+        if (b.isLit) {
+          const litG = ctx.createRadialGradient(b.x + b.w / 2, b.y + b.h / 2, 0, b.x + b.w / 2, b.y + b.h / 2, Math.max(b.w, b.h) * 0.7);
+          litG.addColorStop(0, 'rgba(255,180,60,0.28)');
+          litG.addColorStop(1, 'transparent');
+          ctx.fillStyle = litG;
+          ctx.beginPath();
+          ctx.roundRect(b.x, b.y, b.w, b.h, 2);
+          ctx.fill();
+        }
+
+        // HVAC units (small darker squares on roof)
+        const hvacCount = 2 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < hvacCount; i++) {
+          const hx = b.x + rand(b.w * 0.1, b.w * 0.8);
+          const hy = b.y + rand(b.h * 0.1, b.h * 0.8);
+          const hs = rand(4, 9);
+          ctx.fillStyle = 'rgba(0,0,0,0.4)';
+          ctx.fillRect(hx, hy, hs, hs * 0.7);
+        }
+
+        // Water tower
+        if (b.hasWaterTower) {
+          const tx = b.x + b.w * 0.7;
+          const ty = b.y + b.h * 0.2;
+          ctx.fillStyle = 'rgba(80,60,40,0.7)';
+          ctx.beginPath(); ctx.arc(tx, ty, 5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(100,80,55,0.5)';
+          ctx.beginPath(); ctx.arc(tx, ty, 3, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Helipad
+        if (b.hasHelipad) {
+          const hpX = b.x + b.w / 2;
+          const hpY = b.y + b.h / 2;
+          ctx.strokeStyle = 'rgba(255,255,100,0.5)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(hpX, hpY, Math.min(b.w, b.h) * 0.3, 0, Math.PI * 2); ctx.stroke();
+          // H letter
+          ctx.strokeStyle = 'rgba(255,255,100,0.4)';
+          ctx.lineWidth = 1.5;
+          const hs = Math.min(b.w, b.h) * 0.15;
+          ctx.beginPath();
+          ctx.moveTo(hpX - hs, hpY - hs); ctx.lineTo(hpX - hs, hpY + hs);
+          ctx.moveTo(hpX + hs, hpY - hs); ctx.lineTo(hpX + hs, hpY + hs);
+          ctx.moveTo(hpX - hs, hpY); ctx.lineTo(hpX + hs, hpY);
+          ctx.stroke();
+        }
+
+        // Glass atrium (top-down view — blue tinted rectangle)
+        if (b.hasAtrium) {
+          const ax = b.x + b.w * 0.25;
+          const ay = b.y + b.h * 0.25;
+          const aw = b.w * 0.5;
+          const ah = b.h * 0.5;
+          ctx.fillStyle = 'rgba(100,160,220,0.25)';
+          ctx.beginPath();
+          ctx.roundRect(ax, ay, aw, ah, 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(120,180,240,0.3)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(ax, ay, aw, ah, 2);
+          ctx.stroke();
+        }
+
+        // Roof edge highlight (top-left lit side)
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y + b.h);
+        ctx.lineTo(b.x, b.y);
+        ctx.lineTo(b.x + b.w, b.y);
+        ctx.stroke();
+      }
+    }
+
+    function drawAerialCars() {
+      for (const c of aerialCars) {
+        c.x += c.vx;
+        c.y += c.vy;
+        if (c.x > W + 20) c.x = -20;
+        if (c.x < -20) c.x = W + 20;
+        if (c.y > H + 20) c.y = -20;
+        if (c.y < -20) c.y = H + 20;
+
+        // Draw as a tiny glowing dot
+        const dotG = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, 5);
+        dotG.addColorStop(0, c.col);
+        dotG.addColorStop(1, 'transparent');
+        ctx.fillStyle = dotG;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Solid dot center
+        ctx.fillStyle = c.col;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 2, 0, Math.PI * 2);
         ctx.fill();
       }
     }
 
-    function drawShimmerLines() {
-      for (const s of shimmerLines) {
-        s.x += s.vx;
-        if (s.x > W + s.len) s.x = -s.len;
-        if (s.x < -s.len) s.x = W + s.len;
-        ctx.globalAlpha = 0.18;
-        ctx.strokeStyle = 'rgba(200,180,255,1)';
-        ctx.lineWidth = 0.7;
-        ctx.beginPath();
-        ctx.moveTo(s.x, s.y);
-        ctx.lineTo(s.x + s.len, s.y);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    function tickWindows() {
+    function tickFlicker() {
       flickerTimer++;
-      const threshold = 100 + Math.floor(Math.random() * 50);
-      if (flickerTimer >= threshold) {
+      if (flickerTimer > 80 + Math.floor(Math.random() * 40)) {
         flickerTimer = 0;
-        if (frontBuildings.length > 0) {
-          const b = frontBuildings[Math.floor(Math.random() * frontBuildings.length)];
-          if (b.wins.length > 0) { const w = b.wins[Math.floor(Math.random() * b.wins.length)]; w.on = !w.on; }
-        }
-        if (midBuildings.length > 0) {
-          const b = midBuildings[Math.floor(Math.random() * midBuildings.length)];
-          if (b.wins.length > 0) { const w = b.wins[Math.floor(Math.random() * b.wins.length)]; w.on = !w.on; }
+        if (buildings.length > 0) {
+          const b = buildings[Math.floor(Math.random() * buildings.length)];
+          b.isLit = !b.isLit;
         }
       }
     }
 
     function loop() {
       frame++;
-      tickWindows();
+      tickFlicker();
 
-      drawSky();
-      drawStars();
-      drawHorizonGlow();
-      drawBackBuildings();
-      drawMidBuildings();
-      drawFrontBuildings();
-      drawGroundStrip();
-      drawWater();
-      drawShimmerLines();
+      drawStreetGrid();
+      drawPark();
+      drawRiver();
+      drawBuildings();
+      drawAerialCars();
 
       raf = requestAnimationFrame(loop);
     }

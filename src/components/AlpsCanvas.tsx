@@ -4,14 +4,29 @@ import { useEffect, useRef } from 'react';
 function rand(a: number, b: number) { return a + Math.random() * (b - a); }
 function randInt(a: number, b: number) { return Math.floor(rand(a, b + 1)); }
 
+function shadeHex(col: string, amt: number): string {
+  let r = 0, g = 0, b = 0;
+  if (col.startsWith('#')) {
+    const n = parseInt(col.replace('#', ''), 16);
+    r = (n >> 16) & 255; g = (n >> 8) & 255; b = n & 255;
+  } else {
+    const m = col.match(/\d+/g);
+    if (m) { r = +m[0]; g = +m[1]; b = +m[2]; }
+  }
+  return `rgb(${Math.max(0,Math.min(255,r+amt))},${Math.max(0,Math.min(255,g+amt))},${Math.max(0,Math.min(255,b+amt))})`;
+}
+
 interface Cloud { x: number; y: number; blobs: { dx: number; dy: number; rx: number; ry: number }[]; }
 interface PineTree { x: number; baseY: number; h: number; w: number; color: string; }
-interface House { x: number; y: number; w: number; h: number; roofH: number; roofColor: string; bodyColor: string; doors: { x: number; y: number; w: number; h: number }[]; windows: { x: number; y: number; w: number; h: number }[]; }
+interface AlpsHouse { x: number; y: number; w: number; h: number; roofH: number; roofColor: string; bodyColor: string; doors: { x: number; y: number; w: number; h: number }[]; windows: { x: number; y: number; w: number; h: number }[]; }
 interface Person { x: number; y: number; color: string; vx: number; walking: boolean; dir: number; }
 interface Carriage { offsetX: number; }
 interface TrainState { x: number; carriages: Carriage[]; }
 interface FlowerDot { x: number; y: number; color: string; r: number; }
 interface RiverPoint { x: number; y: number; }
+
+// Mountain layer for smooth bezier approach
+interface MountainLayer { baseY: number; amplitude: number; freq: number; colDark: string; colLight: string; }
 
 export default function AlpsCanvas() {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -21,63 +36,20 @@ export default function AlpsCanvas() {
     const ctx = canvas.getContext('2d')!;
     let W = 0, H = 0, raf = 0;
 
-    // --- static pre-generated data ---
     const clouds: Cloud[] = [];
     const backPines: PineTree[] = [];
     const frontPines: PineTree[] = [];
-    const houses: House[] = [];
+    const houses: AlpsHouse[] = [];
     const flowers: FlowerDot[] = [];
     const riverPoints: RiverPoint[] = [];
-
-    // --- animated data ---
     const people: Person[] = [];
+    const mountainLayers: MountainLayer[] = [];
     let train: TrainState = { x: 0, carriages: [] };
 
-    // mountain silhouette points
-    const backPeakPoints: { x: number; y: number }[] = [];
-    const midPeakPoints:  { x: number; y: number }[] = [];
-    const frontPeakPoints:{ x: number; y: number }[] = [];
+    // Matterhorn bezier data
+    let mattX = 0, mattBaseY = 0, mattPeakH = 0;
 
-    // church
     let churchX = 0, churchY = 0, churchW = 0, churchH = 0;
-
-    function buildMatterhorn(cx: number, base: number, peakH: number, halfW: number): { x: number; y: number }[] {
-      // classic pyramid silhouette with jagged sides
-      const pts: { x: number; y: number }[] = [];
-      pts.push({ x: cx - halfW, y: base });
-      pts.push({ x: cx - halfW * 0.85, y: base - peakH * 0.18 });
-      pts.push({ x: cx - halfW * 0.72, y: base - peakH * 0.30 });
-      pts.push({ x: cx - halfW * 0.60, y: base - peakH * 0.45 });
-      pts.push({ x: cx - halfW * 0.48, y: base - peakH * 0.55 });
-      pts.push({ x: cx - halfW * 0.35, y: base - peakH * 0.68 });
-      pts.push({ x: cx - halfW * 0.20, y: base - peakH * 0.82 });
-      pts.push({ x: cx - halfW * 0.08, y: base - peakH * 0.93 });
-      pts.push({ x: cx, y: base - peakH }); // tip
-      pts.push({ x: cx + halfW * 0.08, y: base - peakH * 0.93 });
-      pts.push({ x: cx + halfW * 0.20, y: base - peakH * 0.82 });
-      pts.push({ x: cx + halfW * 0.35, y: base - peakH * 0.68 });
-      pts.push({ x: cx + halfW * 0.48, y: base - peakH * 0.55 });
-      pts.push({ x: cx + halfW * 0.60, y: base - peakH * 0.45 });
-      pts.push({ x: cx + halfW * 0.72, y: base - peakH * 0.30 });
-      pts.push({ x: cx + halfW * 0.85, y: base - peakH * 0.18 });
-      pts.push({ x: cx + halfW, y: base });
-      return pts;
-    }
-
-    function buildJaggedPeak(x1: number, x2: number, base: number, maxH: number, seed: number): { x: number; y: number }[] {
-      const pts: { x: number; y: number }[] = [{ x: x1, y: base }];
-      const steps = Math.floor((x2 - x1) / 18);
-      for (let i = 1; i < steps; i++) {
-        const t = i / steps;
-        const px = x1 + t * (x2 - x1);
-        const envelope = Math.sin(t * Math.PI) * maxH;
-        const jag = Math.sin(t * Math.PI * 7.3 + seed) * maxH * 0.18
-                  + Math.sin(t * Math.PI * 13.7 + seed * 2.1) * maxH * 0.08;
-        pts.push({ x: px, y: base - Math.max(0, envelope + jag) });
-      }
-      pts.push({ x: x2, y: base });
-      return pts;
-    }
 
     function init() {
       if (!canvas) return;
@@ -87,14 +59,24 @@ export default function AlpsCanvas() {
       clouds.length = 0;
       backPines.length = 0; frontPines.length = 0;
       houses.length = 0; flowers.length = 0; riverPoints.length = 0;
-      backPeakPoints.length = 0; midPeakPoints.length = 0; frontPeakPoints.length = 0;
+      people.length = 0; mountainLayers.length = 0;
 
-      const skyH = H * 0.50;       // horizon at 50% from top
-      const valleyTop = H * 0.75;  // valley/meadow starts
-      const pineBackY = H * 0.65;  // back pine row base
-      const pineFrontY = H * 0.72; // front pine row base
+      const skyH = H * 0.50;
+      const valleyTop = H * 0.75;
+      const pineBackY = H * 0.65;
+      const pineFrontY = H * 0.72;
 
-      // ── CLOUDS ───────────────────────────────────────────────
+      // Matterhorn position
+      mattX = W * 0.50;
+      mattBaseY = skyH;
+      mattPeakH = skyH * 0.82;
+
+      // Mountain layers (back → front using smooth bezier in draw)
+      mountainLayers.push({ baseY: skyH, amplitude: skyH * 0.52, freq: 3.8 / W * Math.PI, colDark: '#b8c8d8', colLight: '#d0dce8' });
+      mountainLayers.push({ baseY: skyH + H * 0.04, amplitude: skyH * 0.55, freq: 3.1 / W * Math.PI, colDark: '#8898a8', colLight: '#9faabb' });
+      mountainLayers.push({ baseY: skyH + H * 0.09, amplitude: skyH * 0.42, freq: 4.2 / W * Math.PI, colDark: '#6a7888', colLight: '#7b8c9a' });
+
+      // Clouds
       for (let i = 0; i < 4; i++) {
         const cx = rand(W * 0.05, W * 0.95);
         const cy = rand(H * 0.04, H * 0.22);
@@ -112,71 +94,24 @@ export default function AlpsCanvas() {
         clouds.push({ x: cx, y: cy, blobs });
       }
 
-      // ── MOUNTAIN PEAKS ───────────────────────────────────────
-      // Back layer peaks (pale blue-gray) — 5 peaks
-      {
-        const base = skyH;
-        const peaks = [0.10, 0.28, 0.50, 0.72, 0.90];
-        const heights = [0.55, 0.62, 0.75, 0.58, 0.48]; // Matterhorn at 0.50
-        for (let i = 0; i < peaks.length; i++) {
-          const cx = W * peaks[i];
-          const ph = base * heights[i];
-          const hw = W * (i === 2 ? 0.12 : 0.09);
-          if (i === 2) {
-            // Matterhorn-like central peak
-            const pts = buildMatterhorn(cx, base, ph, hw);
-            for (const p of pts) backPeakPoints.push(p);
-          } else {
-            const pts = buildJaggedPeak(cx - hw, cx + hw, base, ph, i * 2.7);
-            for (const p of pts) backPeakPoints.push(p);
-          }
-          backPeakPoints.push({ x: cx + (i === peaks.length - 1 ? W * 0.09 : W * 0.09), y: base });
-        }
-      }
-
-      // Mid layer peaks
-      {
-        const base = skyH + H * 0.04;
-        const segments = 6;
-        for (let i = 0; i < segments; i++) {
-          const x1 = (i / segments) * W;
-          const x2 = ((i + 1) / segments) * W;
-          const ph = rand(base * 0.38, base * 0.62);
-          const pts = buildJaggedPeak(x1, x2, base, ph, i * 3.1 + 1);
-          midPeakPoints.push(...pts);
-        }
-      }
-
-      // Front peaks
-      {
-        const base = skyH + H * 0.09;
-        const segments = 5;
-        for (let i = 0; i < segments; i++) {
-          const x1 = (i / segments) * W - 20;
-          const x2 = ((i + 1) / segments) * W + 20;
-          const ph = rand(base * 0.28, base * 0.50);
-          const pts = buildJaggedPeak(x1, x2, base, ph, i * 4.2 + 2.3);
-          frontPeakPoints.push(...pts);
-        }
-      }
-
-      // ── PINE TREES ───────────────────────────────────────────
-      // Back row (smaller, denser)
+      // Back pine row
       let tx = -5;
       while (tx < W + 5) {
         const th = rand(16, 24);
-        backPines.push({ x: tx, baseY: pineBackY, h: th, w: th * 0.38, color: '#1a3010' });
+        const hue = randInt(8, 20);
+        backPines.push({ x: tx, baseY: pineBackY, h: th, w: th * 0.38, color: `rgb(${hue},${hue + randInt(15, 25)},${hue})` });
         tx += rand(7, 13);
       }
-      // Front row (larger, denser)
+      // Front pine row
       tx = -5;
       while (tx < W + 5) {
         const th = rand(28, 42);
-        frontPines.push({ x: tx, baseY: pineFrontY, h: th, w: th * 0.38, color: '#0e2008' });
+        const hue = randInt(6, 16);
+        frontPines.push({ x: tx, baseY: pineFrontY, h: th, w: th * 0.38, color: `rgb(${hue},${hue + randInt(18, 28)},${hue})` });
         tx += rand(10, 18);
       }
 
-      // ── RIVER ────────────────────────────────────────────────
+      // River
       {
         let rx = W * 0.55;
         riverPoints.push({ x: rx, y: valleyTop });
@@ -187,7 +122,7 @@ export default function AlpsCanvas() {
         }
       }
 
-      // ── WILDFLOWERS ──────────────────────────────────────────
+      // Flowers
       for (let i = 0; i < 180; i++) {
         const fy = rand(valleyTop, H - 5);
         flowers.push({
@@ -200,7 +135,7 @@ export default function AlpsCanvas() {
         });
       }
 
-      // ── VILLAGE HOUSES ───────────────────────────────────────
+      // Village houses
       const villageLeft = W * 0.06;
       const villageRight = W * 0.45;
       const houseCount = randInt(9, 12);
@@ -230,12 +165,12 @@ export default function AlpsCanvas() {
         houses.push({ x: hx, y: houseBaseY - hh, w: hw, h: hh, roofH, roofColor: roof, bodyColor: body, doors, windows: wins });
       }
 
-      // ── CHURCH ───────────────────────────────────────────────
+      // Church
       churchW = 32; churchH = 44;
       churchX = villageLeft + (villageRight - villageLeft) * 0.5;
       churchY = houseBaseY - churchH;
 
-      // ── TRAIN ────────────────────────────────────────────────
+      // Train
       const carriageCount = 4;
       const carriageSpacing = 30;
       train = { x: -carriageCount * carriageSpacing - 20, carriages: [] };
@@ -243,7 +178,7 @@ export default function AlpsCanvas() {
         train.carriages.push({ offsetX: i * carriageSpacing });
       }
 
-      // ── PEOPLE ───────────────────────────────────────────────
+      // People
       const personColors = ['#3060a0', '#c04020', '#208040', '#806020', '#6030a0', '#c07020'];
       people.length = 0;
       const personBaseY = houseBaseY + 4;
@@ -260,15 +195,22 @@ export default function AlpsCanvas() {
       }
     }
 
-    // ── DRAW FUNCTIONS ────────────────────────────────────────
-
     function drawSky() {
       const skyH = H * 0.50;
       const g = ctx.createLinearGradient(0, 0, 0, skyH);
-      g.addColorStop(0,   '#6ab4f0');
-      g.addColorStop(0.5, '#90ccf8');
-      g.addColorStop(1,   '#c8e8f8');
+      g.addColorStop(0,   '#5a9ce0');
+      g.addColorStop(0.3, '#7ab8f0');
+      g.addColorStop(0.7, '#a8d4f8');
+      g.addColorStop(1,   '#d0eafc');
       ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, skyH);
+
+      // Subtle sun glow upper-right
+      const sunG = ctx.createRadialGradient(W * 0.85, H * 0.06, 0, W * 0.85, H * 0.06, W * 0.3);
+      sunG.addColorStop(0, 'rgba(255,250,220,0.3)');
+      sunG.addColorStop(0.4, 'rgba(255,220,150,0.1)');
+      sunG.addColorStop(1, 'transparent');
+      ctx.fillStyle = sunG;
       ctx.fillRect(0, 0, W, skyH);
     }
 
@@ -276,118 +218,190 @@ export default function AlpsCanvas() {
       for (const c of clouds) {
         c.x += 0.05;
         if (c.x > W + 200) c.x = -200;
-        ctx.globalAlpha = 0.88;
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        for (const b of c.blobs) {
-          ctx.beginPath();
-          ctx.ellipse(c.x + b.dx, c.y + b.dy + Math.sin(frame * 0.003 + b.dx) * 0.8, b.rx, b.ry, 0, 0, Math.PI * 2);
-          ctx.fill();
+        // Soft layered cloud
+        for (let pass = 0; pass < 2; pass++) {
+          ctx.globalAlpha = pass === 0 ? 0.55 : 0.88;
+          ctx.fillStyle = pass === 0 ? 'rgba(220,235,255,0.7)' : 'rgba(255,255,255,0.85)';
+          for (const b of c.blobs) {
+            ctx.beginPath();
+            ctx.ellipse(
+              c.x + b.dx + (pass === 0 ? 2 : 0),
+              c.y + b.dy + (pass === 0 ? 2 : 0) + Math.sin(frame * 0.003 + b.dx) * 0.8,
+              b.rx * (pass === 0 ? 1.1 : 1),
+              b.ry * (pass === 0 ? 1.1 : 1),
+              0, 0, Math.PI * 2
+            );
+            ctx.fill();
+          }
         }
       }
       ctx.globalAlpha = 1;
     }
 
-    function fillPolyPoints(pts: { x: number; y: number }[], color: string) {
-      if (pts.length < 2) return;
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-      ctx.closePath();
-      ctx.fill();
-    }
+    // Draw smooth mountain layer using quadraticCurveTo
+    function drawSmoothMountainLayer(layer: MountainLayer, snowThreshold: number) {
+      const { baseY, amplitude, freq, colDark, colLight } = layer;
+      const step = 30;
 
-    function drawSnowCaps(pts: { x: number; y: number }[], snowThreshold: number, capSize: number) {
-      // Find local minima (peaks) and draw snow patches
-      for (let i = 2; i < pts.length - 2; i++) {
-        const p = pts[i];
-        if (p.y < snowThreshold && pts[i - 1].y > p.y && pts[i + 1].y > p.y) {
-          const spread = (snowThreshold - p.y) * capSize;
-          ctx.fillStyle = '#f0f4ff';
+      function yAt(x: number) {
+        return baseY - amplitude * Math.max(0, Math.sin(x * freq) * 0.5 + Math.sin(x * freq * 2.1) * 0.25 + 0.3);
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      ctx.lineTo(0, baseY);
+
+      let prevY = yAt(0);
+      ctx.lineTo(0, prevY);
+      for (let x = step; x <= W + step; x += step) {
+        const nx = Math.min(x, W);
+        const ny = yAt(nx);
+        ctx.quadraticCurveTo(x - step * 0.5, (prevY + ny) / 2 - 5, nx, ny);
+        prevY = ny;
+      }
+      ctx.lineTo(W, H);
+      ctx.closePath();
+
+      const grad = ctx.createLinearGradient(0, baseY - amplitude, 0, baseY);
+      grad.addColorStop(0, colLight);
+      grad.addColorStop(1, colDark);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Atmospheric haze on peaks
+      const haze = ctx.createLinearGradient(0, baseY - amplitude, 0, baseY - amplitude * 0.5);
+      haze.addColorStop(0, 'rgba(200,220,255,0.18)');
+      haze.addColorStop(1, 'rgba(200,220,255,0.0)');
+      ctx.fillStyle = haze;
+      ctx.fill();
+
+      // Snow caps with gradient
+      for (let x = 0; x <= W; x += 40) {
+        const peakY = yAt(x);
+        if (peakY < snowThreshold) {
+          const snowBaseY = snowThreshold;
+          const snowGrad = ctx.createLinearGradient(x, peakY, x, snowBaseY);
+          snowGrad.addColorStop(0, '#ffffff');
+          snowGrad.addColorStop(0.5, 'rgba(220,230,255,0.9)');
+          snowGrad.addColorStop(1, 'rgba(200,215,240,0)');
+          ctx.fillStyle = snowGrad;
+          const capW = (snowBaseY - peakY) * 0.9;
           ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x - spread * 0.7, p.y + spread * 0.85);
-          ctx.lineTo(p.x + spread * 0.7, p.y + spread * 0.85);
+          ctx.moveTo(x, peakY);
+          ctx.lineTo(x - capW, snowBaseY);
+          ctx.lineTo(x + capW, snowBaseY);
           ctx.closePath();
           ctx.fill();
-          // Blue shadow on right side of snow
-          ctx.fillStyle = 'rgba(160,180,220,0.4)';
+          // Blue shadow
+          ctx.fillStyle = 'rgba(160,180,220,0.35)';
           ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x + spread * 0.05, p.y + spread * 0.4);
-          ctx.lineTo(p.x + spread * 0.7, p.y + spread * 0.85);
+          ctx.moveTo(x, peakY);
+          ctx.lineTo(x + capW * 0.08, peakY + capW * 0.4);
+          ctx.lineTo(x + capW, snowBaseY);
           ctx.closePath();
           ctx.fill();
         }
       }
     }
 
+    // Draw the Matterhorn as a clean sharp bezier pyramid
+    function drawMatterhorn() {
+      const cx = mattX;
+      const base = mattBaseY;
+      const ph = mattPeakH;
+      const hw = W * 0.10;
+      const tipY = base - ph;
+
+      // Left face
+      const leftGrad = ctx.createLinearGradient(cx - hw, base, cx, tipY);
+      leftGrad.addColorStop(0, '#7a8898');
+      leftGrad.addColorStop(1, '#9aacb8');
+      ctx.fillStyle = leftGrad;
+      ctx.beginPath();
+      ctx.moveTo(cx - hw, base);
+      ctx.bezierCurveTo(cx - hw * 0.6, base - ph * 0.3, cx - hw * 0.2, base - ph * 0.7, cx, tipY);
+      ctx.bezierCurveTo(cx - hw * 0.08, base - ph * 0.82, cx - hw * 0.25, base - ph * 0.5, cx - hw * 0.5, base - ph * 0.2);
+      ctx.closePath();
+      ctx.fill();
+
+      // Right face (slightly darker)
+      const rightGrad = ctx.createLinearGradient(cx, tipY, cx + hw, base);
+      rightGrad.addColorStop(0, '#606878');
+      rightGrad.addColorStop(1, '#505868');
+      ctx.fillStyle = rightGrad;
+      ctx.beginPath();
+      ctx.moveTo(cx, tipY);
+      ctx.bezierCurveTo(cx + hw * 0.2, base - ph * 0.7, cx + hw * 0.6, base - ph * 0.3, cx + hw, base);
+      ctx.bezierCurveTo(cx + hw * 0.5, base - ph * 0.2, cx + hw * 0.08, base - ph * 0.5, cx, tipY);
+      ctx.closePath();
+      ctx.fill();
+
+      // Snow cap on Matterhorn
+      const snowEndY = base - ph * 0.72;
+      const snowGrad = ctx.createLinearGradient(cx, tipY, cx, snowEndY);
+      snowGrad.addColorStop(0, '#ffffff');
+      snowGrad.addColorStop(0.5, 'rgba(230,238,255,0.95)');
+      snowGrad.addColorStop(1, 'rgba(210,225,250,0)');
+      ctx.fillStyle = snowGrad;
+      ctx.beginPath();
+      ctx.moveTo(cx, tipY);
+      ctx.bezierCurveTo(cx - hw * 0.12, tipY + ph * 0.08, cx - hw * 0.22, tipY + ph * 0.18, cx - hw * 0.28, snowEndY);
+      ctx.lineTo(cx + hw * 0.28, snowEndY);
+      ctx.bezierCurveTo(cx + hw * 0.22, tipY + ph * 0.18, cx + hw * 0.12, tipY + ph * 0.08, cx, tipY);
+      ctx.closePath();
+      ctx.fill();
+    }
+
     function drawMountains() {
       const skyH = H * 0.50;
+      // Back layer
+      drawSmoothMountainLayer(mountainLayers[0], skyH * 0.55);
+      // Mid layer
+      drawSmoothMountainLayer(mountainLayers[1], skyH * 0.72);
+      // Front layer
+      drawSmoothMountainLayer(mountainLayers[2], skyH * 0.88);
+      // Matterhorn on top
+      drawMatterhorn();
+    }
 
-      if (backPeakPoints.length > 0) {
-        // Back peaks fill
-        const g = ctx.createLinearGradient(0, 0, 0, skyH);
-        g.addColorStop(0, '#b8c8d8');
-        g.addColorStop(1, '#8898a8');
-        ctx.fillStyle = g;
+    // Draw pine trees as stacked ellipses
+    function drawPineTree(t: PineTree) {
+      const layers3 = [
+        { yOff: 0, rx: t.w, ry: t.h * 0.35 },
+        { yOff: -t.h * 0.3, rx: t.w * 0.72, ry: t.h * 0.28 },
+        { yOff: -t.h * 0.58, rx: t.w * 0.44, ry: t.h * 0.20 },
+      ];
+      for (const l of layers3) {
+        ctx.fillStyle = t.color;
         ctx.beginPath();
-        ctx.moveTo(0, skyH);
-        for (const p of backPeakPoints) ctx.lineTo(p.x, p.y);
-        ctx.lineTo(W, skyH);
-        ctx.closePath();
+        ctx.ellipse(t.x, t.baseY - t.h * 0.5 + l.yOff, l.rx, l.ry, 0, 0, Math.PI * 2);
         ctx.fill();
-        drawSnowCaps(backPeakPoints, skyH * 0.55, 1.8);
       }
-
-      if (midPeakPoints.length > 0) {
-        const g2 = ctx.createLinearGradient(0, 0, 0, skyH + H * 0.04);
-        g2.addColorStop(0, '#8898a8');
-        g2.addColorStop(1, '#6a7888');
-        ctx.fillStyle = g2;
-        ctx.beginPath();
-        ctx.moveTo(0, skyH + H * 0.04);
-        for (const p of midPeakPoints) ctx.lineTo(p.x, p.y);
-        ctx.lineTo(W, skyH + H * 0.04);
-        ctx.closePath();
-        ctx.fill();
-        drawSnowCaps(midPeakPoints, skyH * 0.72, 1.5);
-      }
-
-      if (frontPeakPoints.length > 0) {
-        const g3 = ctx.createLinearGradient(0, 0, 0, skyH + H * 0.09);
-        g3.addColorStop(0, '#6a7888');
-        g3.addColorStop(1, '#4a5868');
-        ctx.fillStyle = g3;
-        ctx.beginPath();
-        ctx.moveTo(0, skyH + H * 0.09);
-        for (const p of frontPeakPoints) ctx.lineTo(p.x, p.y);
-        ctx.lineTo(W, skyH + H * 0.09);
-        ctx.closePath();
-        ctx.fill();
-        drawSnowCaps(frontPeakPoints, skyH * 0.88, 1.2);
-      }
+      // Trunk
+      ctx.fillStyle = '#3a2010';
+      ctx.fillRect(t.x - 1.5, t.baseY - 4, 3, 6);
     }
 
     function drawPineRow(trees: PineTree[]) {
-      for (const t of trees) {
-        ctx.fillStyle = t.color;
-        ctx.beginPath();
-        ctx.moveTo(t.x, t.baseY);
-        ctx.lineTo(t.x - t.w, t.baseY);
-        ctx.lineTo(t.x, t.baseY - t.h);
-        ctx.lineTo(t.x + t.w, t.baseY);
-        ctx.closePath();
-        ctx.fill();
-      }
+      for (const t of trees) drawPineTree(t);
     }
 
     function drawValley() {
       const valleyTop = H * 0.75;
+      // River-lit valley: lighter near river, darker away
+      const riverCenterX = W * 0.55;
       const g = ctx.createLinearGradient(0, valleyTop, 0, H);
-      g.addColorStop(0, '#3a8820');
+      g.addColorStop(0, '#4a9828');
+      g.addColorStop(0.5, '#3a8820');
       g.addColorStop(1, '#50a828');
       ctx.fillStyle = g;
+      ctx.fillRect(0, valleyTop, W, H - valleyTop);
+
+      // Subtle texture variation — lighter near river
+      const riverLight = ctx.createRadialGradient(riverCenterX, H * 0.88, 0, riverCenterX, H * 0.88, W * 0.3);
+      riverLight.addColorStop(0, 'rgba(100,200,80,0.15)');
+      riverLight.addColorStop(1, 'transparent');
+      ctx.fillStyle = riverLight;
       ctx.fillRect(0, valleyTop, W, H - valleyTop);
     }
 
@@ -399,9 +413,12 @@ export default function AlpsCanvas() {
       ctx.lineJoin = 'round';
       ctx.beginPath();
       ctx.moveTo(riverPoints[0].x, riverPoints[0].y);
-      for (let i = 1; i < riverPoints.length; i++) {
-        ctx.lineTo(riverPoints[i].x, riverPoints[i].y);
+      for (let i = 1; i < riverPoints.length - 1; i++) {
+        const cp = riverPoints[i];
+        const np = riverPoints[i + 1];
+        ctx.quadraticCurveTo(cp.x, cp.y, (cp.x + np.x) / 2, (cp.y + np.y) / 2);
       }
+      ctx.lineTo(riverPoints[riverPoints.length - 1].x, riverPoints[riverPoints.length - 1].y);
       ctx.stroke();
       // Highlight
       ctx.strokeStyle = 'rgba(150,210,240,0.45)';
@@ -423,68 +440,121 @@ export default function AlpsCanvas() {
       }
     }
 
-    function drawHouses() {
-      for (const h of houses) {
-        // Shadow under house
-        ctx.fillStyle = 'rgba(0,0,0,0.10)';
-        ctx.fillRect(h.x + 2, h.y + h.h, h.w, 3);
+    // 3D house drawing (same as Suburban)
+    function drawAlpsHouse(h: AlpsHouse) {
+      const bodyY = h.y;
+      const bodyH = h.h;
+      const bodyW = h.w;
 
-        // Body
-        ctx.fillStyle = h.bodyColor;
-        ctx.fillRect(h.x, h.y, h.w, h.h);
+      ctx.shadowColor = 'rgba(0,0,0,0.15)';
+      ctx.shadowBlur = 5;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
 
-        // Roof (triangle)
-        ctx.fillStyle = h.roofColor;
+      // Body gradient
+      const bodyGrad = ctx.createLinearGradient(h.x, bodyY, h.x + bodyW, bodyY + bodyH);
+      bodyGrad.addColorStop(0, h.bodyColor);
+      bodyGrad.addColorStop(1, shadeHex(h.bodyColor, -12));
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath();
+      ctx.roundRect(h.x, bodyY, bodyW, bodyH, 1);
+      ctx.fill();
+
+      // Side wall (3D)
+      ctx.fillStyle = shadeHex(h.bodyColor, -25);
+      ctx.beginPath();
+      ctx.moveTo(h.x + bodyW, bodyY);
+      ctx.lineTo(h.x + bodyW + 5, bodyY - 4);
+      ctx.lineTo(h.x + bodyW + 5, bodyY + bodyH - 4);
+      ctx.lineTo(h.x + bodyW, bodyY + bodyH);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+
+      // Roof front face
+      const roofGrad = ctx.createLinearGradient(h.x, h.y - h.roofH, h.x, bodyY);
+      roofGrad.addColorStop(0, h.roofColor);
+      roofGrad.addColorStop(1, shadeHex(h.roofColor, -20));
+      ctx.fillStyle = roofGrad;
+      ctx.beginPath();
+      ctx.moveTo(h.x - 2, bodyY);
+      ctx.lineTo(h.x + bodyW * 0.5, h.y - h.roofH);
+      ctx.lineTo(h.x + bodyW + 2, bodyY);
+      ctx.closePath();
+      ctx.fill();
+
+      // Roof side face
+      ctx.fillStyle = shadeHex(h.roofColor, -40);
+      ctx.beginPath();
+      ctx.moveTo(h.x + bodyW + 2, bodyY);
+      ctx.lineTo(h.x + bodyW * 0.5, h.y - h.roofH);
+      ctx.lineTo(h.x + bodyW * 0.5 + 5, h.y - h.roofH - 3);
+      ctx.lineTo(h.x + bodyW + 7, bodyY - 3);
+      ctx.closePath();
+      ctx.fill();
+
+      // Windows
+      for (const w of h.windows) {
+        ctx.fillStyle = '#c0a878';
+        ctx.fillRect(h.x + w.x - 0.5, h.y + w.y - 0.5, w.w + 1, w.h + 1);
+        ctx.fillStyle = 'rgba(200,230,255,0.65)';
+        ctx.fillRect(h.x + w.x, h.y + w.y, w.w, w.h);
+        ctx.strokeStyle = '#c0a878'; ctx.lineWidth = 0.5;
         ctx.beginPath();
-        ctx.moveTo(h.x - 2, h.y);
-        ctx.lineTo(h.x + h.w * 0.5, h.y - h.roofH);
-        ctx.lineTo(h.x + h.w + 2, h.y);
+        ctx.moveTo(h.x + w.x + w.w / 2, h.y + w.y);
+        ctx.lineTo(h.x + w.x + w.w / 2, h.y + w.y + w.h);
+        ctx.stroke();
+      }
+
+      // Doors (arched)
+      for (const d of h.doors) {
+        const doorX = h.x + d.x;
+        const doorY = h.y + d.y;
+        const doorW = d.w;
+        const doorH = d.h;
+        ctx.fillStyle = '#8b5e3c';
+        ctx.beginPath();
+        ctx.moveTo(doorX, h.y + h.h);
+        ctx.lineTo(doorX, doorY + doorH * 0.3);
+        ctx.arc(doorX + doorW / 2, doorY + doorH * 0.3, doorW / 2, Math.PI, 0);
+        ctx.lineTo(doorX + doorW, h.y + h.h);
         ctx.closePath();
         ctx.fill();
-
-        // Windows
-        for (const w of h.windows) {
-          ctx.fillStyle = '#ffeea0';
-          ctx.fillRect(h.x + w.x, h.y + w.y, w.w, w.h);
-          ctx.strokeStyle = 'rgba(80,60,30,0.4)';
-          ctx.lineWidth = 0.5;
-          ctx.strokeRect(h.x + w.x, h.y + w.y, w.w, w.h);
-        }
-
-        // Doors
-        for (const d of h.doors) {
-          ctx.fillStyle = '#8a5a30';
-          ctx.fillRect(h.x + d.x, h.y + d.y, d.w, d.h);
-        }
       }
+    }
+
+    function drawHouses() {
+      for (const h of houses) drawAlpsHouse(h);
     }
 
     function drawChurch() {
       if (!churchW) return;
       const x = churchX, y = churchY, w = churchW, h = churchH;
 
-      // Shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.12)';
-      ctx.fillRect(x + 3, y + h, w, 4);
+      ctx.shadowColor = 'rgba(0,0,0,0.12)';
+      ctx.shadowBlur = 4; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
 
-      // Body
       ctx.fillStyle = '#f4f0e8';
       ctx.fillRect(x, y, w, h);
 
-      // Door arch
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+
       ctx.fillStyle = '#9a7040';
       ctx.beginPath();
       ctx.arc(x + w * 0.5, y + h - 10, 5, Math.PI, 0);
       ctx.rect(x + w * 0.5 - 5, y + h - 10, 10, 10);
       ctx.fill();
 
-      // Windows
       ctx.fillStyle = '#ffeea0';
       ctx.beginPath(); ctx.arc(x + w * 0.25, y + h * 0.35, 3, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.arc(x + w * 0.75, y + h * 0.35, 3, 0, Math.PI * 2); ctx.fill();
 
-      // Roof
-      ctx.fillStyle = '#c84020';
+      // Roof with gradient
+      const roofGrad = ctx.createLinearGradient(x, y - 12, x, y);
+      roofGrad.addColorStop(0, '#c84020');
+      roofGrad.addColorStop(1, '#a03018');
+      ctx.fillStyle = roofGrad;
       ctx.beginPath();
       ctx.moveTo(x - 2, y);
       ctx.lineTo(x + w * 0.5, y - 12);
@@ -492,7 +562,6 @@ export default function AlpsCanvas() {
       ctx.closePath();
       ctx.fill();
 
-      // Spire base
       const spireBaseX = x + w * 0.5;
       const spireBaseY = y - 12;
       ctx.fillStyle = '#484840';
@@ -503,9 +572,7 @@ export default function AlpsCanvas() {
       ctx.closePath();
       ctx.fill();
 
-      // Cross
-      ctx.strokeStyle = '#484840';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#484840'; ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(spireBaseX - 4, spireBaseY - 32);
       ctx.lineTo(spireBaseX + 4, spireBaseY - 32);
@@ -513,15 +580,11 @@ export default function AlpsCanvas() {
       ctx.lineTo(spireBaseX, spireBaseY - 28);
       ctx.stroke();
 
-      // Clock face
       ctx.fillStyle = 'white';
       ctx.beginPath(); ctx.arc(x + w * 0.5, y + h * 0.18, 5, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#484840';
-      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = '#484840'; ctx.lineWidth = 0.8;
       ctx.beginPath(); ctx.arc(x + w * 0.5, y + h * 0.18, 5, 0, Math.PI * 2); ctx.stroke();
-      // Clock hands
-      ctx.strokeStyle = '#222';
-      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = '#222'; ctx.lineWidth = 0.8;
       ctx.beginPath();
       ctx.moveTo(x + w * 0.5, y + h * 0.18);
       ctx.lineTo(x + w * 0.5 + 2, y + h * 0.18 - 3);
@@ -538,7 +601,6 @@ export default function AlpsCanvas() {
       ctx.moveTo(0, trackY + 6);
       ctx.lineTo(W, trackY + 6);
       ctx.stroke();
-      // Rail ties
       ctx.strokeStyle = 'rgba(60,45,30,0.4)';
       ctx.lineWidth = 1.5;
       for (let tx = 0; tx < W; tx += 18) {
@@ -547,17 +609,12 @@ export default function AlpsCanvas() {
         ctx.lineTo(tx, trackY + 10);
         ctx.stroke();
       }
-      // Rail lines
       ctx.strokeStyle = 'rgba(80,70,60,0.6)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(0, trackY + 3);
-      ctx.lineTo(W, trackY + 3);
-      ctx.stroke();
+      ctx.moveTo(0, trackY + 3); ctx.lineTo(W, trackY + 3); ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(0, trackY + 9);
-      ctx.lineTo(W, trackY + 9);
-      ctx.stroke();
+      ctx.moveTo(0, trackY + 9); ctx.lineTo(W, trackY + 9); ctx.stroke();
     }
 
     function drawTrain() {
@@ -572,35 +629,28 @@ export default function AlpsCanvas() {
         const cx = train.x - car.offsetX;
         const cy = trackY - ch + 2;
 
-        // Carriage body
         ctx.fillStyle = '#cc2222';
         ctx.beginPath();
         ctx.roundRect(cx, cy, cw, ch, r);
         ctx.fill();
 
-        // Roof
         ctx.fillStyle = '#a01818';
         ctx.fillRect(cx + 1, cy, cw - 2, 5);
 
-        // Windows
-        const winColors = 'rgba(255,250,230,0.85)';
-        ctx.fillStyle = winColors;
+        ctx.fillStyle = 'rgba(255,250,230,0.85)';
         ctx.fillRect(cx + 4, cy + 5, 7, 5);
         ctx.fillRect(cx + 15, cy + 5, 7, 5);
 
-        // Window divider
         ctx.strokeStyle = 'rgba(160,20,20,0.6)';
         ctx.lineWidth = 0.8;
         ctx.strokeRect(cx + 4, cy + 5, 7, 5);
         ctx.strokeRect(cx + 15, cy + 5, 7, 5);
 
-        // Wheels
         ctx.fillStyle = '#333';
         ctx.beginPath(); ctx.arc(cx + 6, cy + ch, 3, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(cx + cw - 6, cy + ch, 3, 0, Math.PI * 2); ctx.fill();
       }
 
-      // Locomotive (front)
       const lx = train.x + 4;
       const ly = trackY - ch - 4;
       ctx.fillStyle = '#dd1818';
@@ -612,10 +662,8 @@ export default function AlpsCanvas() {
       ctx.fillStyle = 'rgba(255,250,230,0.85)';
       ctx.fillRect(lx + 3, ly + 7, 8, 6);
       ctx.fillRect(lx + 16, ly + 7, 8, 6);
-      // Chimney
       ctx.fillStyle = '#222';
       ctx.fillRect(lx + 28, ly - 5, 5, 6);
-      // Wheels
       ctx.fillStyle = '#222';
       ctx.beginPath(); ctx.arc(lx + 7, ly + ch + 4, 4, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.arc(lx + cw + 1, ly + ch + 4, 4, 0, Math.PI * 2); ctx.fill();
@@ -632,17 +680,14 @@ export default function AlpsCanvas() {
         const bodyW = 4, bodyH = 6;
         const totalH = headR * 2 + bodyH + 2;
 
-        // Body
         ctx.fillStyle = p.color;
         ctx.fillRect(p.x - bodyW / 2, p.y - totalH * 0.5 + headR * 2 + 1, bodyW, bodyH);
 
-        // Head
         ctx.fillStyle = '#f0d0a8';
         ctx.beginPath();
         ctx.arc(p.x, p.y - totalH * 0.5 + headR, headR, 0, Math.PI * 2);
         ctx.fill();
 
-        // Legs (simple, walking only moves slightly)
         ctx.strokeStyle = p.color;
         ctx.lineWidth = 1.2;
         const legOffset = p.walking ? Math.sin(Date.now() * 0.008 + p.x) * 2 : 0;
@@ -656,7 +701,6 @@ export default function AlpsCanvas() {
       }
     }
 
-    // ── MAIN LOOP ─────────────────────────────────────────────
     let frame = 0;
     function loop() {
       frame++;

@@ -6,8 +6,7 @@ function rand(a: number, b: number) { return a + Math.random() * (b - a); }
 interface Star { x: number; y: number; r: number; phase: number; }
 interface Cloud { x: number; y: number; w: number; h: number; phase: number; }
 interface ShimmerLine { x: number; y: number; len: number; vx: number; opacity: number; }
-interface PineTree { x: number; h: number; w: number; }
-interface MountainPoint { x: number; y: number; }
+interface PineTree { x: number; h: number; w: number; col: string; }
 
 export default function NatureCanvas() {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -20,9 +19,9 @@ export default function NatureCanvas() {
     const clouds: Cloud[] = [];
     const shimmerLines: ShimmerLine[] = [];
     const pineTrees: PineTree[] = [];
-    const distPeaks: MountainPoint[] = [];
-    const midPeaks: MountainPoint[] = [];
-    const closePeaks: MountainPoint[] = [];
+
+    // Mountain layer config (computed in init)
+    const layers: Array<{ baseY: number; amplitude: number; freq: number; col: string; col2: string; }> = [];
 
     function init() {
       if (!canvas) return;
@@ -30,7 +29,7 @@ export default function NatureCanvas() {
       canvas.width = W; canvas.height = H;
       mountainY = H * 0.52; lakeY = H * 0.75;
       stars.length = 0; clouds.length = 0; shimmerLines.length = 0;
-      pineTrees.length = 0; distPeaks.length = 0; midPeaks.length = 0; closePeaks.length = 0;
+      pineTrees.length = 0; layers.length = 0;
 
       // Stars — upper third
       for (let i = 0; i < 180; i++) {
@@ -42,34 +41,22 @@ export default function NatureCanvas() {
         clouds.push({ x: rand(0, W), y: rand(mountainY * 0.1, mountainY * 0.45), w: rand(W * 0.18, W * 0.32), h: rand(20, 40), phase: rand(0, Math.PI * 2) });
       }
 
-      // Distant mountain peaks
-      for (let x = 0; x <= W; x += 45) {
-        const t = x / W;
-        const py = mountainY - (mountainY * 0.52) * Math.max(0, Math.sin(t * Math.PI * 3.8 + 0.3) * 0.55 + Math.sin(t * Math.PI * 7.2 + 1.2) * 0.25 + 0.12);
-        distPeaks.push({ x, y: py });
-      }
-
-      // Mid mountain peaks
-      for (let x = 0; x <= W; x += 38) {
-        const t = x / W;
-        const py = mountainY - (mountainY * 0.62) * Math.max(0, Math.sin(t * Math.PI * 3.1 + 1.0) * 0.52 + Math.sin(t * Math.PI * 5.8 + 2.1) * 0.22 + 0.15);
-        midPeaks.push({ x, y: py });
-      }
-
-      // Close mountain peaks (largest, most imposing)
-      for (let x = 0; x <= W; x += 32) {
-        const t = x / W;
-        const py = mountainY - (mountainY * 0.75) * Math.max(0, Math.sin(t * Math.PI * 2.6 + 0.6) * 0.48 + Math.sin(t * Math.PI * 4.8 + 1.8) * 0.18 + 0.2);
-        closePeaks.push({ x, y: py });
-      }
+      // Mountain layers (back → front)
+      layers.push({ baseY: mountainY, amplitude: mountainY * 0.52, freq: 3.8 / W * Math.PI, col: '#8060a0', col2: '#a080c0' });
+      layers.push({ baseY: mountainY, amplitude: mountainY * 0.62, freq: 3.1 / W * Math.PI, col: '#503878', col2: '#705098' });
+      layers.push({ baseY: mountainY, amplitude: mountainY * 0.75, freq: 2.6 / W * Math.PI, col: '#2a1848', col2: '#3a2858' });
 
       // Pine trees at base of mountains
       let tx = -15;
+      const mobile = W < 600;
+      const treeStep = mobile ? 18 : 14;
       while (tx < W + 15) {
         const th = rand(30, 65);
         const tw = th * 0.36;
-        pineTrees.push({ x: tx, h: th, w: tw });
-        tx += rand(12, 22);
+        const greenVar = randInt(8, 22);
+        const col = `rgb(${greenVar},${greenVar + rand(10, 28)},${greenVar})`;
+        pineTrees.push({ x: tx, h: th, w: tw, col });
+        tx += rand(treeStep - 4, treeStep + 6);
       }
 
       // Lake shimmer lines
@@ -84,8 +71,9 @@ export default function NatureCanvas() {
       }
     }
 
+    function randInt(a: number, b: number) { return Math.floor(rand(a, b)); }
+
     function drawSky() {
-      // Vivid aurora/sunset sky: deep purple top → golden horizon
       const sky = ctx.createLinearGradient(0, 0, 0, mountainY);
       sky.addColorStop(0, '#1a0a30');
       sky.addColorStop(0.18, '#3d1878');
@@ -107,6 +95,42 @@ export default function NatureCanvas() {
       ctx.globalAlpha = 1;
     }
 
+    // Aurora ribbons — wavy filled shapes
+    function drawAurora() {
+      const auroraData = [
+        { baseY: mountainY * 0.20, ampTop: 18, ampBot: 28, col: 'rgba(80,200,160,', freq: 0.006 },
+        { baseY: mountainY * 0.32, ampTop: 14, ampBot: 22, col: 'rgba(120,80,220,', freq: 0.009 },
+        { baseY: mountainY * 0.12, ampTop: 10, ampBot: 16, col: 'rgba(60,180,220,', freq: 0.007 },
+      ];
+      const t = Date.now() * 0.001;
+      for (const a of auroraData) {
+        ctx.beginPath();
+        ctx.moveTo(0, a.baseY - a.ampTop);
+        // Top edge — wavy sine
+        for (let x = 0; x <= W; x += 20) {
+          const y = a.baseY - a.ampTop + Math.sin(x * a.freq + t * 0.5) * a.ampTop * 0.5;
+          const nx = Math.min(x + 20, W);
+          const ny = a.baseY - a.ampTop + Math.sin(nx * a.freq + t * 0.5) * a.ampTop * 0.5;
+          ctx.quadraticCurveTo(x + 10, (y + ny) / 2 - 3, nx, ny);
+        }
+        // Bottom edge — reversed
+        for (let x = W; x >= 0; x -= 20) {
+          const y = a.baseY + a.ampBot + Math.sin(x * a.freq + t * 0.6 + 1) * a.ampBot * 0.4;
+          const nx = Math.max(x - 20, 0);
+          const ny = a.baseY + a.ampBot + Math.sin(nx * a.freq + t * 0.6 + 1) * a.ampBot * 0.4;
+          ctx.quadraticCurveTo(x - 10, (y + ny) / 2 + 3, nx, ny);
+        }
+        ctx.closePath();
+        const aGrad = ctx.createLinearGradient(0, a.baseY - a.ampTop, 0, a.baseY + a.ampBot);
+        aGrad.addColorStop(0, a.col + '0.0)');
+        aGrad.addColorStop(0.4, a.col + '0.22)');
+        aGrad.addColorStop(0.6, a.col + '0.18)');
+        aGrad.addColorStop(1, a.col + '0.0)');
+        ctx.fillStyle = aGrad;
+        ctx.fill();
+      }
+    }
+
     function drawClouds() {
       for (const c of clouds) {
         c.x += 0.1;
@@ -125,64 +149,93 @@ export default function NatureCanvas() {
       ctx.globalAlpha = 1;
     }
 
+    // Smooth mountain layer using quadraticCurveTo
+    function drawMountainLayer(baseY: number, amplitude: number, freq: number, col: string, col2: string) {
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      ctx.lineTo(0, baseY);
+
+      const step = 30;
+      function yAt(x: number) {
+        return baseY - amplitude * Math.max(0, Math.sin(x * freq) * 0.5 + Math.sin(x * freq * 2.1) * 0.25 + 0.3);
+      }
+
+      let prevY = yAt(0);
+      ctx.lineTo(0, prevY);
+      for (let x = step; x <= W + step; x += step) {
+        const nx = Math.min(x, W);
+        const ny = yAt(nx);
+        ctx.quadraticCurveTo(x - step * 0.5, (prevY + ny) / 2 - 5, nx, ny);
+        prevY = ny;
+      }
+
+      ctx.lineTo(W, H);
+      ctx.closePath();
+
+      const grad = ctx.createLinearGradient(0, baseY - amplitude, 0, baseY);
+      grad.addColorStop(0, col2);
+      grad.addColorStop(1, col);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Atmospheric haze overlay on layer
+      const haze = ctx.createLinearGradient(0, baseY - amplitude, 0, baseY);
+      haze.addColorStop(0, 'rgba(180,140,220,0.10)');
+      haze.addColorStop(1, 'rgba(180,140,220,0.0)');
+      ctx.fillStyle = haze;
+      ctx.fill();
+    }
+
+    // Snow caps with gradient
+    function drawSnowCap(peakX: number, peakY: number, snowBaseY: number) {
+      if (peakY > snowBaseY) return;
+      const snowGrad = ctx.createLinearGradient(peakX, peakY, peakX, snowBaseY);
+      snowGrad.addColorStop(0, '#ffffff');
+      snowGrad.addColorStop(0.5, 'rgba(220,230,255,0.9)');
+      snowGrad.addColorStop(1, 'rgba(200,215,240,0)');
+      ctx.fillStyle = snowGrad;
+      const capW = (snowBaseY - peakY) * 0.9;
+      ctx.beginPath();
+      ctx.moveTo(peakX, peakY);
+      ctx.lineTo(peakX - capW, snowBaseY);
+      ctx.lineTo(peakX + capW, snowBaseY);
+      ctx.closePath();
+      ctx.fill();
+    }
+
     function drawMountains() {
-      // Distant peaks: pale purple-pink
-      ctx.fillStyle = '#8060a0';
-      ctx.beginPath(); ctx.moveTo(0, mountainY);
-      for (const p of distPeaks) ctx.lineTo(p.x, p.y);
-      ctx.lineTo(W, mountainY); ctx.closePath(); ctx.fill();
+      // Draw back to front
+      for (const l of layers) {
+        drawMountainLayer(l.baseY, l.amplitude, l.freq, l.col, l.col2);
+      }
 
-      // Snow caps on distant peaks
-      ctx.fillStyle = 'rgba(240,235,255,0.75)';
-      for (let i = 1; i < distPeaks.length - 1; i++) {
-        const p = distPeaks[i];
-        if (p.y < mountainY * 0.38) {
-          const capH = (mountainY * 0.38 - p.y) * 0.55;
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x + 12, p.y + capH);
-          ctx.lineTo(p.x - 12, p.y + capH);
-          ctx.closePath(); ctx.fill();
+      // Snow caps on distant layer peaks (approximate peak positions)
+      const distFreq = layers[0].freq;
+      const distAmp = layers[0].amplitude;
+      for (let x = 0; x <= W; x += 55) {
+        const y = mountainY - distAmp * Math.max(0, Math.sin(x * distFreq) * 0.5 + Math.sin(x * distFreq * 2.1) * 0.25 + 0.3);
+        if (y < mountainY * 0.38) {
+          drawSnowCap(x, y, mountainY * 0.38);
         }
       }
 
-      // Mid mountains: vivid purple
-      ctx.fillStyle = '#503878';
-      ctx.beginPath(); ctx.moveTo(0, mountainY);
-      for (const p of midPeaks) ctx.lineTo(p.x, p.y);
-      ctx.lineTo(W, mountainY); ctx.closePath(); ctx.fill();
-
-      // Snow caps on mid peaks
-      ctx.fillStyle = 'rgba(240,238,255,0.88)';
-      for (let i = 1; i < midPeaks.length - 1; i++) {
-        const p = midPeaks[i];
-        if (p.y < mountainY * 0.28) {
-          const capH = (mountainY * 0.28 - p.y) * 0.6;
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x + 16, p.y + capH);
-          ctx.lineTo(p.x - 16, p.y + capH);
-          ctx.closePath(); ctx.fill();
+      // Snow caps on mid layer peaks
+      const midFreq = layers[1].freq;
+      const midAmp = layers[1].amplitude;
+      for (let x = 0; x <= W; x += 48) {
+        const y = mountainY - midAmp * Math.max(0, Math.sin(x * midFreq) * 0.5 + Math.sin(x * midFreq * 2.1) * 0.25 + 0.3);
+        if (y < mountainY * 0.28) {
+          drawSnowCap(x, y, mountainY * 0.28);
         }
       }
 
-      // Close peaks: darkest, most imposing
-      ctx.fillStyle = '#2a1848';
-      ctx.beginPath(); ctx.moveTo(0, mountainY);
-      for (const p of closePeaks) ctx.lineTo(p.x, p.y);
-      ctx.lineTo(W, mountainY); ctx.closePath(); ctx.fill();
-
-      // Heavy snow caps on close peaks
-      ctx.fillStyle = 'rgba(248,248,255,0.96)';
-      for (let i = 1; i < closePeaks.length - 1; i++) {
-        const p = closePeaks[i];
-        if (p.y < mountainY * 0.22) {
-          const capH = (mountainY * 0.22 - p.y) * 0.65;
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x + 22, p.y + capH);
-          ctx.lineTo(p.x - 22, p.y + capH);
-          ctx.closePath(); ctx.fill();
+      // Heavy snow caps on close layer peaks
+      const closeFreq = layers[2].freq;
+      const closeAmp = layers[2].amplitude;
+      for (let x = 0; x <= W; x += 42) {
+        const y = mountainY - closeAmp * Math.max(0, Math.sin(x * closeFreq) * 0.5 + Math.sin(x * closeFreq * 2.1) * 0.25 + 0.3);
+        if (y < mountainY * 0.22) {
+          drawSnowCap(x, y, mountainY * 0.22);
         }
       }
     }
@@ -190,13 +243,32 @@ export default function NatureCanvas() {
     function drawPineForest() {
       const treeBaseY = mountainY * 0.98;
       for (const t of pineTrees) {
-        ctx.fillStyle = '#0a1a10';
+        // Soft drop shadow
+        ctx.globalAlpha = 0.18;
+        ctx.fillStyle = '#000';
         ctx.beginPath();
-        ctx.moveTo(t.x, treeBaseY);
-        ctx.lineTo(t.x - t.w, treeBaseY);
-        ctx.lineTo(t.x, treeBaseY - t.h);
-        ctx.lineTo(t.x + t.w, treeBaseY);
-        ctx.closePath(); ctx.fill();
+        ctx.ellipse(t.x + 3, treeBaseY + 2, t.w * 0.6, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Draw as 3 stacked ellipses for a softer look
+        const layers3 = [
+          { yOff: 0, rx: t.w, ry: t.h * 0.35, alpha: 0.9 },
+          { yOff: -t.h * 0.3, rx: t.w * 0.72, ry: t.h * 0.3, alpha: 0.85 },
+          { yOff: -t.h * 0.58, rx: t.w * 0.44, ry: t.h * 0.22, alpha: 0.8 },
+        ];
+        for (const layer of layers3) {
+          ctx.globalAlpha = layer.alpha;
+          ctx.fillStyle = t.col;
+          ctx.beginPath();
+          ctx.ellipse(t.x, treeBaseY - t.h * 0.5 + layer.yOff, layer.rx, layer.ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        // Trunk
+        ctx.fillStyle = '#3a2010';
+        ctx.fillRect(t.x - 1.5, treeBaseY - 5, 3, 7);
       }
     }
 
@@ -215,32 +287,31 @@ export default function NatureCanvas() {
       lake.addColorStop(0.80, '#3d1878');
       lake.addColorStop(1, '#1a0a30');
 
-      // Apply as dark mirror (multiply down opacity)
       ctx.globalAlpha = 0.55;
       ctx.fillStyle = lake;
       ctx.fillRect(0, lakeY, W, H - lakeY);
       ctx.globalAlpha = 1;
 
-      // Dark overlay to darken reflection naturally
       const darkOverlay = ctx.createLinearGradient(0, lakeY, 0, H);
       darkOverlay.addColorStop(0, 'rgba(0,0,0,0.35)');
       darkOverlay.addColorStop(1, 'rgba(0,0,0,0.55)');
       ctx.fillStyle = darkOverlay;
       ctx.fillRect(0, lakeY, W, H - lakeY);
 
-      // Pine tree reflections — inverted dark shapes at top of lake
-      ctx.globalAlpha = 0.35;
-      ctx.fillStyle = '#060c08';
+      // Pine tree reflections using ctx.scale(1,-1) approach
+      ctx.save();
+      ctx.translate(0, lakeY * 2);
+      ctx.scale(1, -1);
+      ctx.globalAlpha = 0.22;
+      const treeBaseY = mountainY * 0.98;
       for (const t of pineTrees) {
-        const refY = lakeY;
+        ctx.fillStyle = '#060c08';
         ctx.beginPath();
-        ctx.moveTo(t.x, refY);
-        ctx.lineTo(t.x - t.w, refY);
-        ctx.lineTo(t.x, refY + t.h * 0.5);
-        ctx.lineTo(t.x + t.w, refY);
-        ctx.closePath(); ctx.fill();
+        ctx.ellipse(t.x, treeBaseY - t.h * 0.5, t.w, t.h * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
       }
       ctx.globalAlpha = 1;
+      ctx.restore();
     }
 
     function drawShimmer() {
@@ -262,6 +333,7 @@ export default function NatureCanvas() {
     function loop() {
       drawSky();
       drawStars();
+      drawAurora();
       drawClouds();
       drawMountains();
       drawPineForest();
